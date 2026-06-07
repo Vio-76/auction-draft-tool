@@ -63,7 +63,6 @@ function playerSold() {
     }
     CacheService.getScriptCache().remove('maxBids');
 
-    removePlayerFromPool(sheet, player); // not implemented yet
     clearAuctionBlock(sheet);
     advanceAfter = true;
   } finally {

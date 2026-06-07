@@ -3,3 +3,4 @@ node_modules/
 .DS_Store
 .clasprc.json
 auction_tool_handover.md
+CLAUDE.md

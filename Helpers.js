@@ -174,11 +174,6 @@ function isPlayerInPool(sheet, player) {
   return readOpenPlayers(sheet).indexOf(player) !== -1;
 }
 
-/** Removes a sold player from the open pool. Empty stub — decide later. */
-function removePlayerFromPool(sheet, player) {
-  // TODO
-}
-
 // ----- Small blind / max bids -----
 
 function readSmallBlind(sheet) {
