@@ -28,6 +28,8 @@
     .opening-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .opening-row .opening-prompt { flex: 1; margin-bottom: 0; }
     .timer-svg { flex-shrink: 0; }
+    .sell-timer-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+    .sell-prompt { font-size: 16px; font-weight: 700; color: #4a90e2; }
     .priced-out { padding: 12px; background: #f0f0f0; border-radius: 6px; color: #666; font-weight: 600; margin-top: 8px; }
   </style>
 </head>
@@ -43,6 +45,7 @@
     const captain = <?!= JSON.stringify(captain) ?>;
     const code    = <?!= JSON.stringify(code) ?>;
     const STATUSES = <?!= JSON.stringify(statuses) ?>;
+    const SELL_MODE_AUTO = <?!= JSON.stringify(sellModeAuto) ?>;
     let lastKey = '';
     let submitting = false;
 
@@ -55,6 +58,12 @@
     let timerInterval = null;
     let lastTurnSig = '';
     let autoSkipFired = false;
+
+    // AUTO-mode bidding countdown (server auto-sells when it reaches zero)
+    let sellEndsAt = null;
+    let sellInterval = null;
+    let sellWindow = 0;
+    let lastBidSig = '';
 
     function esc(s) {
       return String(s).replace(/[&<>"']/g, function(c) {
@@ -85,7 +94,7 @@
         state.phase, state.isYourTurnToOpen, state.currentTurnCaptain,
         state.player, state.highestBid, state.byCaptain,
         state.yourMaxBid, state.smallBlind, state.openPlayers,
-        state.youAreFull
+        state.youAreFull, state.sellMode
       ]);
       if (key === lastKey) return;
       lastKey = key;
@@ -202,6 +211,46 @@
       }
     }
 
+    function syncSellTimer(state) {
+      const active = state.phase === STATUSES.BIDDING && state.sellMode === SELL_MODE_AUTO;
+      if (!active) {
+        if (sellInterval) { clearInterval(sellInterval); sellInterval = null; }
+        sellEndsAt = null;
+        lastBidSig = '';
+        return;
+      }
+      // Re-anchor the local deadline on every new bid (covers anti-snipe extension)
+      // and on first entry to the bidding phase.
+      const sig = state.highestBid + '|' + state.byCaptain;
+      if (sig !== lastBidSig) {
+        lastBidSig = sig;
+        sellWindow = state.sellWindowSeconds || 0;
+        sellEndsAt = Date.now() + (state.sellSecondsRemaining || 0) * 1000;
+      }
+      if (sellEndsAt && !sellInterval) {
+        sellInterval = setInterval(tickSellTimer, 100);
+        tickSellTimer();
+      }
+    }
+
+    // Display only — the server performs the auto-sell. The client never triggers it.
+    function tickSellTimer() {
+      if (!sellEndsAt) return;
+      const remainingSec = Math.max(0, (sellEndsAt - Date.now()) / 1000);
+
+      const arc  = document.getElementById('sell-arc');
+      const text = document.getElementById('sell-text');
+      if (arc && text && sellWindow > 0) {
+        const fraction = Math.min(1, (sellWindow - remainingSec) / sellWindow);
+        arc.setAttribute('stroke-dashoffset', String(TIMER_C * fraction));
+        text.textContent = String(Math.ceil(remainingSec));
+        arc.setAttribute('stroke', remainingSec < 5 ? '#c33' : '#4a90e2');
+      }
+
+      const label = document.getElementById('sell-label');
+      if (label) label.textContent = remainingSec <= 0 ? 'Selling…' : 'Player will be sold in:';
+    }
+
     function renderRegularBid(root, state) {
       const leadingYou = state.byCaptain === captain;
       const byHtml = state.byCaptain
@@ -218,7 +267,22 @@
           : '<input id="amount" type="number" min="' + (state.highestBid + 1) + '" step="1" placeholder="Your bid">' +
             '<button id="submit">Bid</button>';
 
+      // AUTO mode shows a countdown ring; it resets on every new bid, and the
+      // server sells when it reaches zero. MANUAL mode shows no timer.
+      const timerHtml = state.sellMode === SELL_MODE_AUTO
+        ? '<div class="sell-timer-row">' +
+            '<div class="sell-prompt" id="sell-label">Player will be sold in:</div>' +
+            '<svg class="timer-svg" width="60" height="60" viewBox="0 0 60 60">' +
+              '<circle cx="30" cy="30" r="26" fill="none" stroke="#eee" stroke-width="4"/>' +
+              '<circle id="sell-arc" cx="30" cy="30" r="26" fill="none" stroke="#4a90e2" stroke-width="4" ' +
+                'stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 30 30)"/>' +
+              '<text id="sell-text" x="30" y="36" text-anchor="middle" font-size="18" font-weight="700"></text>' +
+            '</svg>' +
+          '</div>'
+        : '';
+
       root.innerHTML =
+        timerHtml +
         '<div class="player">' + esc(state.player) + '</div>' +
         '<div class="bid-line">Highest bid: <span class="bid-amount">$' + state.highestBid + '</span>' + byHtml + '</div>' +
         '<div class="max-line">Your max bid: $' + state.yourMaxBid + '</div>' +
@@ -309,7 +373,7 @@
     function poll() {
       google.script.run.withSuccessHandler(function(state) {
         render(state);
-        if (state) syncTimer(state);
+        if (state) { syncTimer(state); syncSellTimer(state); }
       }).getState(captain, code);
     }
 

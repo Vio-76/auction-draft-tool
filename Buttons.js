@@ -14,10 +14,12 @@ function advanceTurn() {
   }
 }
 
-/** Button: "Open Bidding". */
+/** Button: "Open Bidding". Treats reopening as a fresh bid (restarts the cooldown). */
 function openBidding() {
-  SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET)
-    .getRange(STATUS_CELL).setValue(STATUS_BIDDING);
+  const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  sheet.getRange(STATUS_CELL).setValue(STATUS_BIDDING);
+  setLastBidTime();
+  setSoldButtonUsableCell(sheet, SOLD_DISABLED);
 }
 
 /** Button: "set status to opening bid of current captains turn". */
@@ -29,41 +31,42 @@ function openOpeningBid() {
 
 /** Closes bidding without assigning a player. Only for manual admin interruption*/
 function closeBidding() {
-  SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET)
-    .getRange(STATUS_CELL).setValue(STATUS_CLOSED);
+  const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  sheet.getRange(STATUS_CELL).setValue(STATUS_CLOSED);
+  clearLastBidTime();
+  clearSoldButtonUsableCell(sheet);
 }
 
-/** Button: "Sold!" — close bidding, acquire lock, assign the player to the winning captain and reset current bidding. */
+/**
+ * Button: "Sold!" — assign the player to the winning captain and advance the turn.
+ * Blocked until the post-bid cooldown elapses (both modes). The lock is held while
+ * selling, then status is set CLOSED so any queued bids reject in the gap before
+ * advanceTurn() flips to the next captain's OPENING phase.
+ */
 function playerSold() {
-  //first close bidding for the captains
-  closeBidding();
-
   let advanceAfter = false;
 
   const lock = LockService.getScriptLock();
   lock.waitLock(5000);
   try {
     const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
-    const player = readCell(sheet, PLAYER_CELL);
-    const bid    = readNumber(sheet, HIGHEST_BID_CELL);
-    const winner = readCell(sheet, BY_CAPTAIN_CELL);
 
-    if (!player) { alertUser("No player to assign."); return; }
-    if (!winner) { alertUser("No winning captain — nobody placed a bid."); return; }
-
-    const captainPos = findCaptainCellPosition(sheet, winner);
-    if (!captainPos) {
-      alertUser("Could not find captain '" + winner + "' in the team header rows.");
+    if (readStatus(sheet) !== STATUS_BIDDING) {
+      alertUser("Nothing to sell — bidding isn't open.");
+      return;
+    }
+    if (!checkSoldButtonUsable(sheet)) {
+      const remaining = Math.ceil(readSoldCooldownSeconds(sheet) - (Date.now() - getLastBidTime()) / 1000);
+      alertUser("Wait " + remaining + "s after the last bid before selling.");
       return;
     }
 
-    if (!placePlayerInTeam(sheet, captainPos, player, bid)) {
-      alertUser("Captain '" + winner + "' has no free slots left.");
-      return;
-    }
-    CacheService.getScriptCache().remove('maxBids');
+    const result = _sellPlayerInner(sheet);
+    if (!result.ok) { alertUser(result.error); return; }
 
-    clearAuctionBlock(sheet);
+    sheet.getRange(STATUS_CELL).setValue(STATUS_CLOSED);
+    clearLastBidTime();
+    clearSoldButtonUsableCell(sheet);
     advanceAfter = true;
   } finally {
     lock.releaseLock();
@@ -89,6 +92,8 @@ function startAuction() {
     const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
 
     clearAuctionBlock(sheet);
+    clearLastBidTime();
+    clearSoldButtonUsableCell(sheet);
 
     // Clear the marker so advanceTurn starts from index 0
     const numRows = TRACKER_LAST_ROW - TRACKER_FIRST_ROW + 1;

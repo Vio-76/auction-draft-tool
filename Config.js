@@ -56,3 +56,28 @@ const STATUS_OPENING  = "OPENING";   // waiting for current turn-holder to place
 const STATUS_BIDDING  = "BIDDING";      // bidding open to everyone
 const STATUS_CLOSED   = "CLOSED";    // nothing happening, essentially paused. Occurs before Auction is started or after manual admin intervention
 const STATUS_FINISHED = "FINISHED";  // auction over
+
+// ----- Sell mode (how the bidding phase ends) -----
+
+// Cell holding the current sell mode: "AUTO" or "MANUAL" (give it an AUTO/MANUAL dropdown).
+const SELL_MODE_CELL = "E64";   // adjust to a free cell near the Sold! shape
+
+// AUTO mode: sell automatically after this many seconds with no new bid.
+const AUTO_SELL_COUNTDOWN_DURATION_CELL = "D69";   // adjust to a free cell
+
+// Both modes: the Sold! button stays blocked for this many seconds after each
+// bid, then arms. Gives late bidders a fair window and prevents instant selling.
+const SOLD_COOLDOWN_CELL = "L69";   // adjust to a free cell
+
+// Both modes: drives the Sold! button colour via conditional formatting
+// (DISABLED -> red, ENABLED -> green, blank -> no fill). Place under the transparent Sold! shape.
+const SOLD_BUTTON_USABLE_CELL = "T69";   // adjust to a free cell
+
+const SELL_MODE_AUTO   = "AUTO";
+const SELL_MODE_MANUAL = "MANUAL";
+const SOLD_ENABLED  = "ENABLED";
+const SOLD_DISABLED = "DISABLED";
+
+// Fallbacks used when the corresponding cell is blank or invalid.
+const DEFAULT_AUTO_WINDOW_SECONDS   = 15;
+const DEFAULT_SOLD_COOLDOWN_SECONDS = 3;

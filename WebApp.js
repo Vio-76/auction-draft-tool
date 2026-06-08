@@ -17,6 +17,7 @@ function doGet(e) {
     FINISHED: STATUS_FINISHED,
   };
   tmpl.openingBidTimeoutSeconds = OPENING_BID_TIMEOUT_SECONDS;
+  tmpl.sellModeAuto = SELL_MODE_AUTO;
   return tmpl.evaluate()
     .setTitle("Auction — " + (captain || "no captain"))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -27,14 +28,18 @@ function getState(captain, code) {
   if (!checkCode(captain, code)) return { unauthorized: true };
   maybeAutoSkip();
   const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  maybeAutoSell(sheet);
+  maybeArmSoldButton(sheet);
 
   const phase = readStatus(sheet) || STATUS_CLOSED;
+  const sellMode = readSellMode(sheet);
   const currentTurnCaptain = findCurrentTurnCaptain(sheet);
   const isYourTurnToOpen = (phase === STATUS_OPENING) && (currentTurnCaptain === captain);
 
   const result = {
     captain:      captain,
     phase:        phase,
+    sellMode:     sellMode,
     currentTurnCaptain: currentTurnCaptain,
     isYourTurnToOpen: isYourTurnToOpen,
     player:       readCell(sheet, PLAYER_CELL),
@@ -49,6 +54,12 @@ function getState(captain, code) {
   if (isYourTurnToOpen) {
     result.openPlayers = readOpenPlayers(sheet);
     result.secondsRemaining = getOpeningTurnSecondsRemaining();
+  }
+
+  // AUTO mode: send the auto-sell countdown so captains see a ring during bidding.
+  if (phase === STATUS_BIDDING && sellMode === SELL_MODE_AUTO) {
+    result.sellWindowSeconds  = readAutoWindowSeconds(sheet);
+    result.sellSecondsRemaining = getAutoSellSecondsRemaining(sheet);
   }
 
   return result;
@@ -80,6 +91,8 @@ function placeBid(captain, code, amount) {
 
     sheet.getRange(HIGHEST_BID_CELL).setValue(bid);
     sheet.getRange(BY_CAPTAIN_CELL).setValue(captain);
+    setLastBidTime();
+    setSoldButtonUsableCell(sheet, SOLD_DISABLED);
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -129,6 +142,8 @@ function placeOpeningBid(captain, code, playerName, amount) {
     sheet.getRange(HIGHEST_BID_CELL).setValue(bid);
     sheet.getRange(BY_CAPTAIN_CELL).setValue(captain);
     sheet.getRange(STATUS_CELL).setValue(STATUS_BIDDING);
+    setLastBidTime();
+    setSoldButtonUsableCell(sheet, SOLD_DISABLED);
     return { ok: true };
   } finally {
     lock.releaseLock();

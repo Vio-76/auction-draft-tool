@@ -235,6 +235,121 @@ function maybeAutoSkip() {
   }
 }
 
+// ----- Sell mode (ending the bidding phase) -----
+
+/** Current sell mode from the sheet. Defaults to MANUAL (never auto-sells unexpectedly). */
+function readSellMode(sheet) {
+  return readCell(sheet, SELL_MODE_CELL).toUpperCase() === SELL_MODE_AUTO
+    ? SELL_MODE_AUTO : SELL_MODE_MANUAL;
+}
+
+function readAutoWindowSeconds(sheet) {
+  return readNumber(sheet, AUTO_SELL_COUNTDOWN_DURATION_CELL) || DEFAULT_AUTO_WINDOW_SECONDS;
+}
+
+function readSoldCooldownSeconds(sheet) {
+  return readNumber(sheet, SOLD_COOLDOWN_CELL) || DEFAULT_SOLD_COOLDOWN_SECONDS;
+}
+
+// Last-bid timestamp, stored in script properties (mirrors the opening-bid deadline).
+function setLastBidTime() {
+  PropertiesService.getScriptProperties().setProperty('LAST_BID_TIME', String(Date.now()));
+}
+
+function getLastBidTime() {
+  const v = PropertiesService.getScriptProperties().getProperty('LAST_BID_TIME');
+  return v ? Number(v) : 0;
+}
+
+function clearLastBidTime() {
+  PropertiesService.getScriptProperties().deleteProperty('LAST_BID_TIME');
+}
+
+/** Seconds until the AUTO-mode auto-sell fires (for the captain countdown ring). */
+function getAutoSellSecondsRemaining(sheet) {
+  const lastBid = getLastBidTime();
+  if (!lastBid) return readAutoWindowSeconds(sheet);
+  return Math.max(0, Math.round(readAutoWindowSeconds(sheet) - (Date.now() - lastBid) / 1000));
+}
+
+/** True once the Sold!-button arming cooldown has passed (both modes). */
+function checkSoldButtonUsable(sheet) {
+  const lastBid = getLastBidTime();
+  if (!lastBid) return true; // no bid recorded — nothing to wait for
+  return Date.now() - lastBid >= readSoldCooldownSeconds(sheet) * 1000;
+}
+
+function setSoldButtonUsableCell(sheet, value) {
+  sheet.getRange(SOLD_BUTTON_USABLE_CELL).setValue(value);
+}
+
+function clearSoldButtonUsableCell(sheet) {
+  sheet.getRange(SOLD_BUTTON_USABLE_CELL).clearContent();
+}
+
+/**
+ * Core sale logic, lock-held. Assigns the current player to the winning captain.
+ * Returns { ok, error } so both the admin button and auto-sell can use it
+ * (auto-sell can't show modal alerts). Does NOT advance the turn — caller does.
+ */
+function _sellPlayerInner(sheet) {
+  const player = readCell(sheet, PLAYER_CELL);
+  const bid    = readNumber(sheet, HIGHEST_BID_CELL);
+  const winner = readCell(sheet, BY_CAPTAIN_CELL);
+
+  if (!player) return { ok: false, error: "No player to assign." };
+  if (!winner) return { ok: false, error: "No winning captain — nobody placed a bid." };
+
+  const captainPos = findCaptainCellPosition(sheet, winner);
+  if (!captainPos) {
+    return { ok: false, error: "Could not find captain '" + winner + "' in the team header rows." };
+  }
+  if (!placePlayerInTeam(sheet, captainPos, player, bid)) {
+    return { ok: false, error: "Captain '" + winner + "' has no free slots left." };
+  }
+
+  CacheService.getScriptCache().remove('maxBids');
+  clearAuctionBlock(sheet);
+  return { ok: true };
+}
+
+/**
+ * AUTO mode only: if no bid has landed within the window, sell to the high bidder
+ * and advance the turn. Piggybacks on getState polls, like maybeAutoSkip. Server-only.
+ */
+function maybeAutoSell(sheet) {
+  if (readSellMode(sheet) !== SELL_MODE_AUTO) return;
+  if (readStatus(sheet) !== STATUS_BIDDING) return;
+  const lastBid = getLastBidTime();
+  if (!lastBid) return;
+  if (Date.now() - lastBid < readAutoWindowSeconds(sheet) * 1000) return;
+
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return; // someone else is doing it, or sheet is busy
+  try {
+    // Re-check inside the lock to avoid a double-sell race.
+    if (readStatus(sheet) !== STATUS_BIDDING) return;
+    if (readSellMode(sheet) !== SELL_MODE_AUTO) return;
+    const fresh = getLastBidTime();
+    if (!fresh || Date.now() - fresh < readAutoWindowSeconds(sheet) * 1000) return;
+
+    if (!_sellPlayerInner(sheet).ok) return; // e.g. no free slot — leave it for the admin
+    clearLastBidTime();
+    clearSoldButtonUsableCell(sheet);
+    _advanceTurnInner(sheet);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Flips the Sold! button from WAIT to READY once the cooldown elapses (both modes). */
+function maybeArmSoldButton(sheet) {
+  if (readStatus(sheet) !== STATUS_BIDDING) return;
+  if (!checkSoldButtonUsable(sheet)) return;
+  if (readCell(sheet, SOLD_BUTTON_USABLE_CELL) !== SOLD_DISABLED) return; // single-transition guard
+  setSoldButtonUsableCell(sheet, SOLD_ENABLED);
+}
+
 // ----- Misc -----
 
 function alertUser(message) {
