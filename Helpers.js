@@ -17,9 +17,9 @@ function readStatus(sheet) {
   return readCell(sheet, STATUS_CELL).toUpperCase();
 }
 
-// A captain's max bid, defaulting a missing/blank value to the small blind so there
-// is never an unbounded ("0 = no cap") captain. Every captain always has a finite,
-// positive max.
+// A captain's max bid, defaulting a missing/blank value to the small blind (and at
+// least 1, in case the small blind itself is unset) so there is never an unbounded
+// ("0 = no cap") captain. Every captain always has a finite, positive max.
 function readCaptainMaxBid(sheet, captain) {
   const cache = CacheService.getScriptCache();
   const json = cache.get('maxBids');
@@ -35,7 +35,7 @@ function readCaptainMaxBid(sheet, captain) {
     }
     cache.put('maxBids', JSON.stringify(map), 5); // 5 second TTL
   }
-  return map[captain] || readSmallBlind(sheet);
+  return map[captain] || readSmallBlind(sheet) || 1;
 }
 
 // ----- Auth sheet lookups -----
@@ -412,6 +412,17 @@ function noOneCanOutbid(sheet, currentBidder, currentBid) {
     if (captainCanOutbid(sheet, name, currentBid, fullByName)) return false;
   }
   return true;
+}
+
+/**
+ * Called right after a bid is written (caller holds the lock): if nobody else can
+ * outbid it, sell immediately and advance; otherwise stamp the last-bid clock and
+ * re-arm the Sold!-button cooldown. Shared by placeBid and placeOpeningBid.
+ */
+function _finalizeBid(sheet, bidder, bid) {
+  if (noOneCanOutbid(sheet, bidder, bid) && _finalizeSaleAndAdvance(sheet).ok) return;
+  setLastBidTime();
+  setSoldButtonUsableCell(sheet, SOLD_DISABLED);
 }
 
 /** Flips the Sold! button from WAIT to READY once the cooldown elapses (both modes). */
