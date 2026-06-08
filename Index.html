@@ -2,46 +2,410 @@
 <html>
 <head>
   <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="<?= fontUrl ?>">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 16px; color: #222; }
-    .captain-tag { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-    .captain-name { font-size: 22px; font-weight: 700; margin-bottom: 24px; }
-    .waiting { padding: 40px 20px; text-align: center; color: #888; background: #f4f4f4; border-radius: 10px; font-size: 18px; }
-    .invalid { padding: 40px 20px; text-align: center; color: #c33; background: #fdecea; border-radius: 10px; font-size: 18px; }
-    .finished { padding: 40px 20px; text-align: center; color: #2a9d4f; background: #eaf6ec; border-radius: 10px; font-size: 18px; font-weight: 700; }
-    .opening-prompt { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #4a90e2; }
-    .player { font-size: 32px; font-weight: 700; margin: 8px 0 16px; word-break: break-all; }
-    .bid-line { font-size: 18px; margin-bottom: 4px; }
-    .bid-amount { font-weight: 700; }
-    .leading-you { color: #2a9d4f; }
-    .max-line { color: #888; font-size: 14px; margin: 12px 0; }
-    .team-full { padding: 12px; background: #fff3cd; border-radius: 6px; color: #7a5c00; font-weight: 600; margin-top: 8px; }
-    select, input { font-size: 18px; padding: 10px; border: 2px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-    select { width: 100%; margin-bottom: 12px; }
-    input { width: 140px; }
-    button { font-size: 18px; padding: 12px 24px; background: #4a90e2; color: white; border: none; border-radius: 6px; cursor: pointer; margin-left: 8px; }
-    button:disabled { background: #aaa; cursor: not-allowed; }
-    .skip-row { margin-top: 32px; text-align: right; }
-    .skip-btn { font-size: 13px; padding: 6px 12px; background: transparent; color: #888; border: 1px solid #ccc; margin-left: 0; }
-    .skip-btn:hover { background: #f4f4f4; color: #555; }
-    .error { color: #c33; margin-top: 12px; min-height: 20px; }
-    .opening-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .opening-row .opening-prompt { flex: 1; margin-bottom: 0; }
-    .timer-svg { flex-shrink: 0; }
-    .sell-timer-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
-    .sell-prompt { font-size: 16px; font-weight: 700; color: #4a90e2; }
-    .priced-out { padding: 12px; background: #fdecea; border-radius: 6px; color: #a01818; font-weight: 600; margin-top: 8px; }
-    .sold-banner { padding: 12px 16px; margin-bottom: 16px; text-align: center; background: #fff6da; color: #7a5c00; border-radius: 8px; font-weight: 700; font-size: 17px; }
+    /* ===========================================================
+       THEME TOKENS
+       Base :root = "draftroom". Each [data-theme="..."] block below
+       overrides the tokens (and adds a few flourishes). The active
+       theme is set in Config.js (CAPTAIN_THEME) -> body[data-theme].
+       =========================================================== */
+    :root {
+      --bg:#0c0e13;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(246,181,60,.16), transparent 60%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(52,226,155,.06), transparent 60%);
+      --grain-opacity:.04;
+      --surface:#15181f;
+      --surface-2:#1c2029;
+      --card: linear-gradient(180deg, var(--surface-2), var(--surface));
+      --card-border:1px solid var(--line);
+      --line:rgba(255,255,255,.07);
+      --line-strong:rgba(255,255,255,.14);
+      --ink:#f3f1ea;
+      --muted:#878c98;
+      --accent:#f6b53c;
+      --accent-strong:#ffc759;
+      --accent-ink:#1a1205;
+      --accent-soft:rgba(246,181,60,.1);
+      --accent-border:rgba(246,181,60,.3);
+      --accent-glow:0 6px 18px -6px rgba(246,181,60,.6);
+      --eyebrow:#caa044;
+      --positive:#34e29b;
+      --positive-soft:rgba(52,226,155,.08);
+      --positive-border:rgba(52,226,155,.3);
+      --danger:#ff5b54;
+      --danger-soft:rgba(255,91,84,.1);
+      --danger-border:rgba(255,91,84,.35);
+      --ring-track:rgba(255,255,255,0.12);
+      --radius:16px;
+      --control-radius:12px;
+      --shadow:0 18px 40px -12px rgba(0,0,0,.7);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(246,181,60,0));
+      --sold-bg: linear-gradient(90deg, rgba(246,181,60,.18), rgba(246,181,60,.04));
+      --focus-ring:0 0 0 3px rgba(246,181,60,.18);
+      --disabled-bg:#2a2e37;
+      --disabled-ink:#6a6f7a;
+      --btn-active-shift:translateY(1px);
+      --font-display:'Oswald', sans-serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:700;
+      --display-transform:uppercase;
+      --display-spacing:.01em;
+      --player-size:40px;
+      --bid-size:42px;
+    }
+
+    /* ---- auction house (light, lot-card luxury) ---- */
+    [data-theme="auctionhouse"] {
+      --bg:#f3ede1;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(154,123,63,.16), transparent 60%),
+                 radial-gradient(100% 50% at 50% 120%, rgba(154,123,63,.06), transparent 60%);
+      --grain-opacity:.05;
+      --surface:#fbf7ef; --surface-2:#fffdf8;
+      --card: linear-gradient(180deg, #fffdf8, #f8f2e7);
+      --line:rgba(50,38,20,.12); --line-strong:rgba(50,38,20,.2);
+      --ink:#241d12; --muted:#8a7c66;
+      --accent:#9a7b3f; --accent-strong:#b5934f; --accent-ink:#fffdf8;
+      --accent-soft:rgba(154,123,63,.12); --accent-border:rgba(154,123,63,.35);
+      --accent-glow:0 8px 20px -10px rgba(154,123,63,.5); --eyebrow:#9a7b3f;
+      --positive:#3f7d52; --positive-soft:rgba(63,125,82,.1); --positive-border:rgba(63,125,82,.3);
+      --danger:#a8362b; --danger-soft:rgba(168,54,43,.08); --danger-border:rgba(168,54,43,.3);
+      --ring-track:rgba(50,38,20,.14);
+      --radius:7px; --control-radius:6px;
+      --shadow:0 14px 34px -18px rgba(50,38,20,.35);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(154,123,63,0));
+      --sold-bg: linear-gradient(90deg, rgba(154,123,63,.16), rgba(154,123,63,.03));
+      --focus-ring:0 0 0 3px rgba(154,123,63,.2);
+      --disabled-bg:#e6ded0; --disabled-ink:#a99e8a;
+      --font-display:'Fraunces', Georgia, serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'Fraunces', Georgia, serif;
+      --display-weight:600; --display-transform:none; --display-spacing:.005em;
+      --player-size:42px; --bid-size:44px;
+    }
+    [data-theme="auctionhouse"] .card-eyebrow { font-style:italic; letter-spacing:.25em; }
+    [data-theme="auctionhouse"] .bid-figure { font-variant-numeric:lining-nums; }
+
+    /* ---- terminal (green-on-black trading floor) ---- */
+    [data-theme="terminal"] {
+      --bg:#060a08;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(35,224,138,.12), transparent 60%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(35,224,138,.05), transparent 60%);
+      --grain-opacity:.06;
+      --surface:#0a110d; --surface-2:#0d1712;
+      --card: linear-gradient(180deg, #0d1712, #0a110d);
+      --line:rgba(60,255,160,.12); --line-strong:rgba(60,255,160,.24);
+      --ink:#c9f7d8; --muted:#5d9173;
+      --accent:#23e08a; --accent-strong:#43ffa3; --accent-ink:#04140c;
+      --accent-soft:rgba(35,224,138,.12); --accent-border:rgba(35,224,138,.35);
+      --accent-glow:0 0 18px -2px rgba(35,224,138,.5); --eyebrow:#23e08a;
+      --positive:#23e08a; --positive-soft:rgba(35,224,138,.1); --positive-border:rgba(35,224,138,.3);
+      --danger:#ff5b54; --danger-soft:rgba(255,91,84,.1); --danger-border:rgba(255,91,84,.35);
+      --ring-track:rgba(60,255,160,.14);
+      --radius:3px; --control-radius:2px;
+      --shadow:0 0 0 1px rgba(35,224,138,.08), 0 18px 40px -20px rgba(0,0,0,.8);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(35,224,138,0));
+      --sold-bg: linear-gradient(90deg, rgba(35,224,138,.16), rgba(35,224,138,.03));
+      --focus-ring:0 0 0 3px rgba(35,224,138,.2);
+      --disabled-bg:#16241c; --disabled-ink:#4a6b56;
+      --font-display:'JetBrains Mono', monospace;
+      --font-body:'JetBrains Mono', monospace;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:700; --display-transform:uppercase; --display-spacing:.02em;
+      --player-size:34px; --bid-size:40px;
+    }
+    [data-theme="terminal"] .player-card {
+      background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0,30,15,.22) 4px), var(--card);
+    }
+    [data-theme="terminal"] .card-eyebrow::before { content:'> '; }
+    [data-theme="terminal"] .bid-figure::after {
+      content:'_'; margin-left:2px; color:var(--accent); animation:blink 1.1s steps(1,end) infinite;
+    }
+
+    /* ---- broadcast (draft-night TV lower-thirds) ---- */
+    [data-theme="broadcast"] {
+      --bg:#081226;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(255,59,48,.18), transparent 55%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(255,210,63,.08), transparent 60%);
+      --grain-opacity:.05;
+      --surface:#0d1c3a; --surface-2:#13264c;
+      --card: linear-gradient(180deg, #13264c, #0d1c3a);
+      --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.2);
+      --ink:#f3f7ff; --muted:#9fb2d8;
+      --accent:#ff3b30; --accent-strong:#ff5a50; --accent-ink:#ffffff;
+      --accent-soft:rgba(255,59,48,.14); --accent-border:rgba(255,59,48,.4);
+      --accent-glow:0 8px 20px -8px rgba(255,59,48,.6); --eyebrow:#ffd23f;
+      --positive:#3ddc84; --positive-soft:rgba(61,220,132,.12); --positive-border:rgba(61,220,132,.35);
+      --danger:#ffd23f; --danger-soft:rgba(255,210,63,.12); --danger-border:rgba(255,210,63,.4);
+      --ring-track:rgba(255,255,255,.16);
+      --radius:5px; --control-radius:4px;
+      --shadow:0 16px 38px -14px rgba(0,0,0,.75);
+      --topbar: linear-gradient(90deg, var(--accent) 0, var(--accent) 60%, #ffd23f 60%, #ffd23f 100%);
+      --sold-bg: linear-gradient(90deg, rgba(255,59,48,.2), rgba(255,210,63,.06));
+      --focus-ring:0 0 0 3px rgba(255,59,48,.25);
+      --disabled-bg:#1d2c4a; --disabled-ink:#6d80a6;
+      --font-display:'Anton', sans-serif;
+      --font-body:'Archivo', sans-serif;
+      --font-mono:'Archivo', sans-serif;
+      --display-weight:400; --display-transform:uppercase; --display-spacing:.02em;
+      --player-size:46px; --bid-size:48px;
+    }
+    [data-theme="broadcast"] .card-eyebrow {
+      display:inline-block; background:var(--accent); color:#fff;
+      padding:5px 12px 4px; letter-spacing:.18em; transform:skewX(-9deg); border-radius:2px;
+    }
+    [data-theme="broadcast"] .bid-figure { font-variant-numeric:tabular-nums; font-weight:900; }
+
+    /* ---- brutalist (stark paper + alarm red) ---- */
+    [data-theme="brutalist"] {
+      --bg:#eceae3; --bg-glow:none; --grain-opacity:0;
+      --surface:#ffffff; --surface-2:#ffffff;
+      --card:#ffffff; --card-border:3px solid #111111;
+      --line:#111111; --line-strong:#111111;
+      --ink:#0a0a0a; --muted:#444444;
+      --accent:#ff2a00; --accent-strong:#ff2a00; --accent-ink:#ffffff;
+      --accent-soft:rgba(255,42,0,.1); --accent-border:#111111;
+      --accent-glow:6px 6px 0 #111111; --eyebrow:#0a0a0a;
+      --positive:#0a7d2c; --positive-soft:rgba(10,125,44,.1); --positive-border:#111111;
+      --danger:#ff2a00; --danger-soft:rgba(255,42,0,.1); --danger-border:#111111;
+      --ring-track:rgba(10,10,10,.18);
+      --radius:0px; --control-radius:0px;
+      --shadow:6px 6px 0 #111111;
+      --topbar:#111111;
+      --sold-bg:#ffffff;
+      --focus-ring:0 0 0 3px rgba(255,42,0,.3);
+      --disabled-bg:#d6d4cc; --disabled-ink:#8a887f;
+      --font-display:'Archivo', sans-serif;
+      --font-body:'Archivo', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:900; --display-transform:uppercase; --display-spacing:-.02em;
+      --player-size:46px; --bid-size:56px;
+    }
+    [data-theme="brutalist"] .player-card::before { height:6px; }
+    [data-theme="brutalist"] .sold-banner { border:3px solid #111; }
+    [data-theme="brutalist"] .team-full,
+    [data-theme="brutalist"] .priced-out { border:2px solid #111; }
+    [data-theme="brutalist"] input,
+    [data-theme="brutalist"] select { border:2px solid #111; }
+    [data-theme="brutalist"] button:active { box-shadow:none; transform:translate(3px,3px); }
+
+    /* ---- casino (poker felt + neon + gold chips) ---- */
+    [data-theme="casino"] {
+      --bg:#0a2a1a;
+      --bg-glow: radial-gradient(110% 70% at 50% -10%, rgba(255,208,46,.18), transparent 55%),
+                 radial-gradient(90% 60% at 12% 110%, rgba(255,77,109,.18), transparent 55%),
+                 radial-gradient(90% 60% at 88% 110%, rgba(64,206,255,.14), transparent 55%);
+      --grain-opacity:.07;
+      --surface:#0e3522; --surface-2:#114229;
+      --card: linear-gradient(180deg, #124a2e, #0d3a23);
+      --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.2);
+      --ink:#fff6e9; --muted:#8fbfa3;
+      --accent:#ffd02e; --accent-strong:#ffe16a; --accent-ink:#3a2a00;
+      --accent-soft:rgba(255,208,46,.14); --accent-border:rgba(255,208,46,.4);
+      --accent-glow:0 0 22px -2px rgba(255,208,46,.65); --eyebrow:#ff4d6d;
+      --positive:#39e0a0; --positive-soft:rgba(57,224,160,.12); --positive-border:rgba(57,224,160,.35);
+      --danger:#ff4d6d; --danger-soft:rgba(255,77,109,.12); --danger-border:rgba(255,77,109,.4);
+      --ring-track:rgba(255,255,255,.16);
+      --radius:18px; --control-radius:999px;
+      --shadow:0 18px 40px -14px rgba(0,0,0,.7), 0 0 0 1px rgba(255,208,46,.1);
+      --topbar: linear-gradient(90deg, #ff4d6d, #ffd02e 50%, #40ceff);
+      --sold-bg: linear-gradient(90deg, rgba(255,208,46,.2), rgba(255,77,109,.06));
+      --focus-ring:0 0 0 3px rgba(255,208,46,.28);
+      --disabled-bg:#1a3a28; --disabled-ink:#5f8f73;
+      --font-display:'Bungee', sans-serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:400; --display-transform:uppercase; --display-spacing:.01em;
+      --player-size:36px; --bid-size:44px;
+    }
+    [data-theme="casino"] .bid-figure { text-shadow:0 0 18px rgba(255,208,46,.55); }
+    [data-theme="casino"] .card-eyebrow { text-shadow:0 0 12px rgba(255,77,109,.6); }
+    [data-theme="casino"] .player-card { border:1px solid rgba(255,208,46,.18); }
+
+    /* ===========================================================
+       LAYOUT & COMPONENTS (token-driven)
+       =========================================================== */
+    * { box-sizing: border-box; }
+
+    body {
+      margin:0; min-height:100vh;
+      font-family:var(--font-body);
+      color:var(--ink);
+      background: var(--bg-glow), var(--bg);
+      background-attachment:fixed;
+      -webkit-font-smoothing:antialiased;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity:var(--grain-opacity); mix-blend-mode:overlay;
+    }
+
+    .shell { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:28px 18px 48px; }
+
+    .captain-tag {
+      font-family:var(--font-display); font-weight:500; font-size:12px;
+      letter-spacing:.32em; text-transform:uppercase; color:var(--accent);
+      animation:fadeUp .4s ease both;
+    }
+    .captain-name {
+      font-family:var(--font-display); font-weight:var(--display-weight); font-size:36px; line-height:1;
+      letter-spacing:var(--display-spacing); text-transform:var(--display-transform); margin:2px 0 22px;
+      padding-bottom:18px; border-bottom:1px solid var(--line);
+      animation:fadeUp .4s ease .05s both;
+    }
+
+    .panel {
+      background:var(--card); border:var(--card-border); border-radius:var(--radius);
+      padding:22px 20px; box-shadow:var(--shadow); animation:cardIn .25s ease both;
+    }
+    .waiting {
+      padding:44px 22px; text-align:center; color:var(--muted);
+      background:var(--surface); border:1px dashed var(--line-strong);
+      border-radius:var(--radius); font-size:17px; animation:cardIn .25s ease both;
+    }
+    .waiting b { color:var(--ink); }
+    .invalid {
+      padding:44px 22px; text-align:center; color:var(--danger); font-weight:600;
+      background:var(--danger-soft); border:1px solid var(--danger-border);
+      border-radius:var(--radius); font-size:17px;
+    }
+    .finished {
+      padding:44px 22px; text-align:center; color:var(--positive);
+      background:var(--positive-soft); border:1px solid var(--positive-border);
+      border-radius:var(--radius); font-family:var(--font-display); font-weight:var(--display-weight);
+      font-size:22px; letter-spacing:.04em; text-transform:uppercase;
+      animation:cardIn .25s ease both;
+    }
+
+    .player-card {
+      position:relative; overflow:hidden;
+      background:var(--card); border:var(--card-border); border-radius:var(--radius);
+      padding:24px 20px 22px; box-shadow:var(--shadow);
+    }
+    .player-card::before {
+      content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--topbar);
+    }
+    .card-eyebrow {
+      font-family:var(--font-display); font-weight:500; font-size:11px;
+      letter-spacing:.3em; text-transform:uppercase; color:var(--eyebrow);
+    }
+    .player {
+      font-family:var(--font-display); font-weight:var(--display-weight); font-size:var(--player-size); line-height:1.02;
+      text-transform:var(--display-transform); letter-spacing:var(--display-spacing);
+      margin:4px 0 18px; word-break:break-word;
+    }
+
+    .bid-stat { margin:0 0 16px; }
+    .bid-label { font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+    .bid-figure {
+      font-family:var(--font-mono); font-weight:700; font-size:var(--bid-size); line-height:1.05;
+      color:var(--accent); letter-spacing:-.02em; animation:ping .45s ease;
+    }
+    .bid-by { font-size:14px; color:var(--muted); margin-top:2px; }
+    .leading-you { color:var(--positive); font-weight:700; }
+    .bid-figure.leading-you { color:var(--positive); }
+
+    .max-line { font-family:var(--font-mono); font-size:12px; color:var(--muted); margin:14px 0; }
+    .max-line b { color:var(--ink); font-weight:700; }
+
+    .team-full {
+      font-family:var(--font-body); padding:14px 16px; border-radius:var(--control-radius); margin-top:8px;
+      background:var(--accent-soft); border:1px solid var(--accent-border); color:var(--accent); font-weight:600;
+    }
+    .priced-out {
+      padding:14px 16px; border-radius:var(--control-radius); margin-top:8px;
+      background:var(--danger-soft); border:1px solid var(--danger-border); color:var(--danger); font-weight:600;
+    }
+
+    .opening-prompt {
+      font-family:var(--font-display); font-weight:600; font-size:17px;
+      text-transform:uppercase; letter-spacing:.02em; color:var(--ink);
+    }
+    .opening-row { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+    .opening-row .opening-prompt { flex:1; }
+
+    .sell-timer-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:16px; }
+    .sell-prompt {
+      font-family:var(--font-display); font-weight:600; font-size:15px;
+      text-transform:uppercase; letter-spacing:.04em; color:var(--accent);
+    }
+
+    input, select {
+      font-family:var(--font-mono); font-size:17px; padding:13px 14px;
+      background:var(--surface); color:var(--ink); border:1px solid var(--line-strong);
+      border-radius:var(--control-radius); outline:none; transition:border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus { border-color:var(--accent); box-shadow:var(--focus-ring); }
+    select {
+      width:100%; margin-bottom:12px; font-family:var(--font-body); appearance:none; -webkit-appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999999' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 14px center; padding-right:38px;
+    }
+    select option { background:var(--surface); color:var(--ink); }
+    input { width:150px; }
+
+    .bid-row { display:flex; align-items:center; gap:10px; margin-top:4px; }
+    .bid-row input { flex:1; width:auto; }
+    .bid-row button { margin-left:0; }
+
+    button {
+      font-family:var(--font-display); font-weight:600; font-size:16px; letter-spacing:.06em;
+      text-transform:uppercase; padding:13px 22px; background:var(--accent); color:var(--accent-ink);
+      border:none; border-radius:var(--control-radius); cursor:pointer; margin-left:8px;
+      box-shadow:var(--accent-glow);
+      transition:transform .08s, box-shadow .2s, background .2s;
+    }
+    button:hover { background:var(--accent-strong); }
+    button:active { transform:var(--btn-active-shift); }
+    button:disabled { background:var(--disabled-bg); color:var(--disabled-ink); box-shadow:none; cursor:not-allowed; }
+
+    .skip-row { margin-top:26px; text-align:right; }
+    .skip-btn {
+      font-family:var(--font-body); font-weight:500; font-size:12px; letter-spacing:.08em;
+      text-transform:uppercase; padding:8px 14px; background:transparent; color:var(--muted);
+      border:1px solid var(--line-strong); border-radius:var(--control-radius); margin-left:0; box-shadow:none;
+    }
+    .skip-btn:hover { background:var(--surface-2); color:var(--ink); }
+
+    .error { color:var(--danger); margin-top:12px; min-height:20px; font-size:14px; font-weight:500; }
+
+    .timer-svg { flex-shrink:0; }
+    .timer-svg circle { transition:stroke .3s; }
+    .timer-svg circle:first-of-type { stroke:var(--ring-track); }
+    .timer-svg text { fill:var(--ink); font-family:var(--font-mono); }
+
+    .sold-banner {
+      display:flex; align-items:center; gap:10px; padding:13px 15px; margin-bottom:18px;
+      background:var(--sold-bg); border:1px solid var(--accent-border); border-radius:var(--control-radius);
+      font-size:15px; color:var(--ink); animation:cardIn .3s ease both;
+    }
+    .sold-tag {
+      font-family:var(--font-display); font-weight:700; font-size:12px; letter-spacing:.12em;
+      text-transform:uppercase; color:var(--accent-ink); background:var(--accent);
+      padding:3px 8px; border-radius:6px; flex-shrink:0;
+    }
+
+    @keyframes cardIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    @keyframes ping { 0% { transform:scale(1.08); } 60% { transform:scale(1); } 100% { transform:scale(1); } }
+    @keyframes blink { 50% { opacity:0; } }
   </style>
 </head>
-<body>
+<body data-theme="<?= theme ?>">
 <? if (!authorized) { ?>
-  <div class="invalid">Invalid link. Check your captain name and code.</div>
+  <div class="shell"><div class="invalid">Invalid link. Check your captain name and code.</div></div>
 <? } else { ?>
-  <div class="captain-tag">Captain</div>
-  <div class="captain-name"><?= captain ?></div>
-  <div id="sold-banner"></div>
-  <div id="content"></div>
+  <div class="shell">
+    <div class="captain-tag">Captain</div>
+    <div class="captain-name"><?= captain ?></div>
+    <div id="sold-banner"></div>
+    <div id="content"></div>
+  </div>
 
   <script>
     const captain = <?!= JSON.stringify(captain) ?>;
@@ -55,6 +419,11 @@
     const OPENING_TIMEOUT = <?!= openingBidTimeoutSeconds ?>;
     const TIMER_R = 26;
     const TIMER_C = 2 * Math.PI * TIMER_R; // circumference, ~163.36
+
+    // Countdown ring colours follow the active theme (Config.js CAPTAIN_THEME).
+    const _themeCss = getComputedStyle(document.body);
+    const RING        = (_themeCss.getPropertyValue('--accent').trim()) || '#f6b53c';
+    const RING_URGENT = (_themeCss.getPropertyValue('--danger').trim()) || '#ff5b54';
 
     let timerEndsAt = null;
     let timerInterval = null;
@@ -149,21 +518,25 @@
       }
 
       root.innerHTML =
-        '<div class="opening-row">' +
-          '<div class="opening-prompt">Your turn — pick a player and place your opening bid:</div>' +
-          '<svg class="timer-svg" width="60" height="60" viewBox="0 0 60 60">' +
-            '<circle cx="30" cy="30" r="26" fill="none" stroke="#eee" stroke-width="4"/>' +
-            '<circle id="timer-arc" cx="30" cy="30" r="26" fill="none" stroke="#4a90e2" stroke-width="4" ' +
-              'stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 30 30)"/>' +
-            '<text id="timer-text" x="30" y="36" text-anchor="middle" font-size="18" font-weight="700">' + OPENING_TIMEOUT + '</text>' +
-          '</svg>' +
-        '</div>' +
-        '<select id="player-select">' + options + '</select>' +
-        '<div class="max-line">Min opening bid: $' + state.smallBlind + ' • Your max bid: $' + state.yourMaxBid + '</div>' +
-        '<input id="amount" type="number" min="' + state.smallBlind + '" step="1" placeholder="Opening bid">' +
-        '<button id="submit">Place opening bid</button>' +
-        '<div class="error" id="error"></div>' +
-        '<div class="skip-row"><button id="skip" class="skip-btn">Skip your turn</button></div>';
+        '<div class="panel">' +
+          '<div class="opening-row">' +
+            '<div class="opening-prompt">Your turn — pick a player and place your opening bid</div>' +
+            '<svg class="timer-svg" width="60" height="60" viewBox="0 0 60 60">' +
+              '<circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>' +
+              '<circle id="timer-arc" cx="30" cy="30" r="26" fill="none" stroke="#f6b53c" stroke-width="4" ' +
+                'stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 30 30)"/>' +
+              '<text id="timer-text" x="30" y="36" text-anchor="middle" font-size="18" font-weight="700">' + OPENING_TIMEOUT + '</text>' +
+            '</svg>' +
+          '</div>' +
+          '<select id="player-select">' + options + '</select>' +
+          '<div class="max-line">Min opening bid: <b>$' + state.smallBlind + '</b> &nbsp;•&nbsp; Your max bid: <b>$' + state.yourMaxBid + '</b></div>' +
+          '<div class="bid-row">' +
+            '<input id="amount" type="number" min="' + state.smallBlind + '" step="1" placeholder="Opening bid">' +
+            '<button id="submit">Place bid</button>' +
+          '</div>' +
+          '<div class="error" id="error"></div>' +
+          '<div class="skip-row"><button id="skip" class="skip-btn">Skip your turn</button></div>' +
+        '</div>';
 
 
       document.getElementById('submit').onclick = submitOpeningBid;
@@ -201,7 +574,7 @@
         const fraction = Math.min(1, (OPENING_TIMEOUT - remainingSec) / OPENING_TIMEOUT);
         arc.setAttribute('stroke-dashoffset', String(TIMER_C * fraction));
         text.textContent = String(Math.ceil(remainingSec));
-        arc.setAttribute('stroke', remainingSec < 10 ? '#c33' : '#4a90e2');
+        arc.setAttribute('stroke', remainingSec < 10 ? RING_URGENT : RING);
       }
 
       if (remainingSec <= 0 && !autoSkipFired) {
@@ -246,18 +619,18 @@
         const fraction = Math.min(1, (sellWindow - remainingSec) / sellWindow);
         arc.setAttribute('stroke-dashoffset', String(TIMER_C * fraction));
         text.textContent = String(Math.ceil(remainingSec));
-        arc.setAttribute('stroke', remainingSec < 5 ? '#c33' : '#4a90e2');
+        arc.setAttribute('stroke', remainingSec < 5 ? RING_URGENT : RING);
       }
 
       const label = document.getElementById('sell-label');
-      if (label) label.textContent = remainingSec <= 0 ? 'Selling…' : 'Player will be sold in:';
+      if (label) label.textContent = remainingSec <= 0 ? 'Selling…' : 'Player will be sold in';
     }
 
     function renderRegularBid(root, state) {
       const leadingYou = state.byCaptain === captain;
-      const byHtml = state.byCaptain
-        ? ' by ' + (leadingYou ? '<span class="leading-you">you</span>' : esc(state.byCaptain))
-        : '';
+      const byText = state.byCaptain
+        ? (leadingYou ? 'by <span class="leading-you">you</span>' : 'by ' + esc(state.byCaptain))
+        : 'No bids yet';
 
       const pricedOut = !state.youAreFull
         && state.yourMaxBid <= state.highestBid;
@@ -266,17 +639,19 @@
         ? '<div class="team-full">Your team is full — you can\'t place bids.</div>'
         : pricedOut
           ? '<div class="priced-out">Max bid reached ($' + state.yourMaxBid + ') — you can\'t outbid this.</div>'
-          : '<input id="amount" type="number" min="' + (state.highestBid + 1) + '" step="1" placeholder="Your bid">' +
-            '<button id="submit">Bid</button>';
+          : '<div class="bid-row">' +
+              '<input id="amount" type="number" min="' + (state.highestBid + 1) + '" step="1" placeholder="Your bid">' +
+              '<button id="submit">Bid</button>' +
+            '</div>';
 
       // AUTO mode shows a countdown ring; it resets on every new bid, and the
       // server sells when it reaches zero. MANUAL mode shows no timer.
       const timerHtml = state.sellMode === SELL_MODE_AUTO
         ? '<div class="sell-timer-row">' +
-            '<div class="sell-prompt" id="sell-label">Player will be sold in:</div>' +
+            '<div class="sell-prompt" id="sell-label">Player will be sold in</div>' +
             '<svg class="timer-svg" width="60" height="60" viewBox="0 0 60 60">' +
-              '<circle cx="30" cy="30" r="26" fill="none" stroke="#eee" stroke-width="4"/>' +
-              '<circle id="sell-arc" cx="30" cy="30" r="26" fill="none" stroke="#4a90e2" stroke-width="4" ' +
+              '<circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="4"/>' +
+              '<circle id="sell-arc" cx="30" cy="30" r="26" fill="none" stroke="#f6b53c" stroke-width="4" ' +
                 'stroke-dasharray="' + TIMER_C + '" stroke-dashoffset="0" transform="rotate(-90 30 30)"/>' +
               '<text id="sell-text" x="30" y="36" text-anchor="middle" font-size="18" font-weight="700"></text>' +
             '</svg>' +
@@ -284,12 +659,19 @@
         : '';
 
       root.innerHTML =
-        timerHtml +
-        '<div class="player">' + esc(state.player) + '</div>' +
-        '<div class="bid-line">Highest bid: <span class="bid-amount">$' + state.highestBid + '</span>' + byHtml + '</div>' +
-        '<div class="max-line">Your max bid: $' + state.yourMaxBid + '</div>' +
-        bidControls +
-        '<div class="error" id="error"></div>';
+        '<div class="player-card">' +
+          timerHtml +
+          '<div class="card-eyebrow">On the block</div>' +
+          '<div class="player">' + esc(state.player) + '</div>' +
+          '<div class="bid-stat">' +
+            '<div class="bid-label">Highest bid</div>' +
+            '<div class="bid-figure' + (leadingYou ? ' leading-you' : '') + '">$' + state.highestBid + '</div>' +
+            '<div class="bid-by">' + byText + '</div>' +
+          '</div>' +
+          '<div class="max-line">Your max bid: <b>$' + state.yourMaxBid + '</b></div>' +
+          bidControls +
+          '<div class="error" id="error"></div>' +
+        '</div>';
 
       if (!state.youAreFull && !pricedOut) {
         document.getElementById('submit').onclick = submitRegularBid;
@@ -381,8 +763,8 @@
       if (sig === lastSoldSig) return;
       lastSoldSig = sig;
       banner.innerHTML = m
-        ? '<div class="sold-banner">' + esc(m.player) + ' has been sold to '
-            + esc(m.winner) + ' for $' + esc(m.bid) + '.</div>'
+        ? '<div class="sold-banner"><span class="sold-tag">Sold</span>'
+            + '<span>' + esc(m.player) + ' → ' + esc(m.winner) + ' &nbsp;·&nbsp; $' + esc(m.bid) + '</span></div>'
         : '';
     }
 

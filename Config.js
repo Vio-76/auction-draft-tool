@@ -85,3 +85,25 @@ const SOLD_DISABLED = "DISABLED";
 // Fallbacks used when the corresponding cell is blank or invalid.
 const DEFAULT_AUTO_WINDOW_SECONDS   = 15;
 const DEFAULT_SOLD_COOLDOWN_SECONDS = 3;
+
+// ----- Captain page theme -----
+// Visual theme for the captain web page. Change this one value (then redeploy)
+// to restyle every captain's page. Options:
+//   "draftroom"    - dark, gold-on-charcoal auction board (default)
+//   "auctionhouse" - light, refined cream + antique-gold lot-card look
+//   "terminal"     - green-on-black trading-floor / terminal
+//   "broadcast"    - navy draft-night TV with red lower-thirds
+//   "brutalist"    - stark black-on-paper with one alarm-red accent
+//   "casino"       - poker-felt green with neon + gold chip-stack energy
+const CAPTAIN_THEME = "draftroom";
+
+// Google Fonts stylesheet per theme. Only the active theme's fonts are loaded,
+// so adding themes never bloats a captain's page load.
+const THEME_FONT_URLS = {
+  draftroom:    "https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap",
+  auctionhouse: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600&display=swap",
+  terminal:     "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap",
+  broadcast:    "https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&display=swap",
+  brutalist:    "https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap",
+  casino:       "https://fonts.googleapis.com/css2?family=Bungee&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap",
+};

@@ -18,6 +18,8 @@ function doGet(e) {
   };
   tmpl.openingBidTimeoutSeconds = OPENING_BID_TIMEOUT_SECONDS;
   tmpl.sellModeAuto = SELL_MODE_AUTO;
+  tmpl.theme = CAPTAIN_THEME;
+  tmpl.fontUrl = THEME_FONT_URLS[CAPTAIN_THEME] || THEME_FONT_URLS.draftroom;
   return tmpl.evaluate()
     .setTitle("Auction — " + (captain || "no captain"))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

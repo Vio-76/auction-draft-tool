@@ -5,3 +5,4 @@ node_modules/
 .clasprc.json
 auction_tool_handover.md
 CLAUDE.md
+.claude
