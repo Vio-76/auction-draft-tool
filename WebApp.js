@@ -26,10 +26,11 @@ function doGet(e) {
 /** Called by the captain webpage every second. */
 function getState(captain, code) {
   if (!checkCode(captain, code)) return { unauthorized: true };
-  maybeAutoSkip();
+  autoSkipIfDeadlinePassed();
   const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
-  maybeAutoSell(sheet);
-  maybeArmSoldButton(sheet);
+  maximizeAutoSellTimeWindowIfSwitchedToAutoMode(sheet);
+  autoSellIfTimeWindowElapsed(sheet);
+  armSoldButtonIfCooldownPeriodElapsed(sheet);
 
   const phase = readStatus(sheet) || STATUS_CLOSED;
   const sellMode = readSellMode(sheet);
@@ -61,6 +62,10 @@ function getState(captain, code) {
     result.sellWindowSeconds  = readAutoWindowSeconds(sheet);
     result.sellSecondsRemaining = getAutoSellSecondsRemaining(sheet);
   }
+
+  // Recently-sold banner: shown for a few seconds after each sale (both modes).
+  const soldMessage = getRecentSoldMessage();
+  if (soldMessage) result.soldMessage = soldMessage;
 
   return result;
 }

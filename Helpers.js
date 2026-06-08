@@ -217,7 +217,7 @@ function _advanceTurnInner(sheet) {
   }
 }
 
-function maybeAutoSkip() {
+function autoSkipIfDeadlinePassed() {
   const v = PropertiesService.getScriptProperties().getProperty('OPENING_DEADLINE');
   if (!v) return;
   if (Date.now() < Number(v)) return;
@@ -249,6 +249,22 @@ function readAutoWindowSeconds(sheet) {
 
 function readSoldCooldownSeconds(sheet) {
   return readNumber(sheet, SOLD_COOLDOWN_CELL) || DEFAULT_SOLD_COOLDOWN_SECONDS;
+}
+
+// Last-sale announcement, surfaced to captains for SOLD_MESSAGE_DISPLAY_SECONDS.
+function setLastSold(player, winner, bid) {
+  PropertiesService.getScriptProperties().setProperty(
+    'LAST_SOLD',
+    JSON.stringify({ player: player, winner: winner, bid: bid, at: Date.now() })
+  );
+}
+
+function getRecentSoldMessage() {
+  const v = PropertiesService.getScriptProperties().getProperty('LAST_SOLD');
+  if (!v) return null;
+  const data = JSON.parse(v);
+  if (Date.now() - data.at > SOLD_MESSAGE_DISPLAY_SECONDS * 1000) return null;
+  return { player: data.player, winner: data.winner, bid: data.bid };
 }
 
 // Last-bid timestamp, stored in script properties (mirrors the opening-bid deadline).
@@ -310,14 +326,35 @@ function _sellPlayerInner(sheet) {
 
   CacheService.getScriptCache().remove('maxBids');
   clearAuctionBlock(sheet);
+  setLastSold(player, winner, bid);
   return { ok: true };
 }
 
 /**
- * AUTO mode only: if no bid has landed within the window, sell to the high bidder
- * and advance the turn. Piggybacks on getState polls, like maybeAutoSkip. Server-only.
+ * If the admin flips MANUAL -> AUTO during an active bidding phase, restart the
+ * auto-sell window from the top: re-anchor the last-bid clock to now and re-arm
+ * the Sold!-button cooldown. Otherwise the window would be measured from the last
+ * (possibly long-past) bid and could fire instantly. Tracks the last-seen mode in
+ * script properties. Server-only; piggybacks on getState polls before autoSellIfTimeWindowElapsed.
  */
-function maybeAutoSell(sheet) {
+function maximizeAutoSellTimeWindowIfSwitchedToAutoMode(sheet) {
+  const props = PropertiesService.getScriptProperties();
+  const mode = readSellMode(sheet);
+  const prev = props.getProperty('PREVIOUS_SELL_MODE');
+  if (mode === prev) return;
+  if (mode === SELL_MODE_AUTO && prev === SELL_MODE_MANUAL
+      && readStatus(sheet) === STATUS_BIDDING && getLastBidTime()) {
+    setLastBidTime();
+    setSoldButtonUsableCell(sheet, SOLD_DISABLED);
+  }
+  props.setProperty('PREVIOUS_SELL_MODE', mode);
+}
+
+/**
+ * AUTO mode only: if no bid has landed within the window, sell to the high bidder
+ * and advance the turn. Piggybacks on getState polls, like autoSkipIfDeadlinePassed. Server-only.
+ */
+function autoSellIfTimeWindowElapsed(sheet) {
   if (readSellMode(sheet) !== SELL_MODE_AUTO) return;
   if (readStatus(sheet) !== STATUS_BIDDING) return;
   const lastBid = getLastBidTime();
@@ -343,7 +380,7 @@ function maybeAutoSell(sheet) {
 }
 
 /** Flips the Sold! button from WAIT to READY once the cooldown elapses (both modes). */
-function maybeArmSoldButton(sheet) {
+function armSoldButtonIfCooldownPeriodElapsed(sheet) {
   if (readStatus(sheet) !== STATUS_BIDDING) return;
   if (!checkSoldButtonUsable(sheet)) return;
   if (readCell(sheet, SOLD_BUTTON_USABLE_CELL) !== SOLD_DISABLED) return; // single-transition guard

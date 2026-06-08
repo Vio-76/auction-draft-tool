@@ -31,6 +31,7 @@
     .sell-timer-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
     .sell-prompt { font-size: 16px; font-weight: 700; color: #4a90e2; }
     .priced-out { padding: 12px; background: #f0f0f0; border-radius: 6px; color: #666; font-weight: 600; margin-top: 8px; }
+    .sold-banner { padding: 12px 16px; margin-bottom: 16px; text-align: center; background: #fff6da; color: #7a5c00; border-radius: 8px; font-weight: 700; font-size: 17px; }
   </style>
 </head>
 <body>
@@ -39,6 +40,7 @@
 <? } else { ?>
   <div class="captain-tag">Captain</div>
   <div class="captain-name"><?= captain ?></div>
+  <div id="sold-banner"></div>
   <div id="content"></div>
 
   <script>
@@ -370,10 +372,24 @@
         .placeBid(captain, code, amount);
     }
 
+    let lastSoldSig = '';
+    function updateSoldBanner(state) {
+      const banner = document.getElementById('sold-banner');
+      if (!banner) return;
+      const m = state && state.soldMessage;
+      const sig = m ? (m.player + '|' + m.winner + '|' + m.bid) : '';
+      if (sig === lastSoldSig) return;
+      lastSoldSig = sig;
+      banner.innerHTML = m
+        ? '<div class="sold-banner">' + esc(m.player) + ' has been sold to '
+            + esc(m.winner) + ' for $' + esc(m.bid) + '.</div>'
+        : '';
+    }
+
     function poll() {
       google.script.run.withSuccessHandler(function(state) {
         render(state);
-        if (state) { syncTimer(state); syncSellTimer(state); }
+        if (state) { syncTimer(state); syncSellTimer(state); updateSoldBanner(state); }
       }).getState(captain, code);
     }
 

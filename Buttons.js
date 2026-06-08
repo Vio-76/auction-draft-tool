@@ -105,6 +105,18 @@ function startAuction() {
   advanceTurn();  // sets marker to first eligible captain and status to OPENING
 }
 
+/** Button: "Set Sell Mode: AUTO". Bidding ends automatically after the auto-sell window. */
+function setSellModeAuto() {
+  SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET)
+    .getRange(SELL_MODE_CELL).setValue(SELL_MODE_AUTO);
+}
+
+/** Button: "Set Sell Mode: MANUAL". Bidding ends only when the admin clicks Sold!. */
+function setSellModeManual() {
+  SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET)
+    .getRange(SELL_MODE_CELL).setValue(SELL_MODE_MANUAL);
+}
+
 /** Button: "Skip Captain". Admin-only — skips whoever currently has the turn. */
 function adminSkipCaptain() {
   const ui = SpreadsheetApp.getUi();

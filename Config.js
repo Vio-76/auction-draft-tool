@@ -15,6 +15,10 @@ const NUM_CAPTAINS = 6;
 //time for captains to submit opening bid before autoskip
 const OPENING_BID_TIMEOUT_SECONDS = 30;
 
+// How long the captain page shows the "<player> sold to <captain> for $<bid>"
+// banner after each sale. Long enough to read, short enough not to stall the auction.
+const SOLD_MESSAGE_DISPLAY_SECONDS = 6;
+
 // Turn tracker Area (captain names + the "it's their turn" marker)
 const TRACKER_NAME_COL   = 1;
 const TRACKER_MARKER_COL = 2;
