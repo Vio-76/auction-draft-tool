@@ -17,20 +17,25 @@ function readStatus(sheet) {
   return readCell(sheet, STATUS_CELL).toUpperCase();
 }
 
+// A captain's max bid, defaulting a missing/blank value to the small blind so there
+// is never an unbounded ("0 = no cap") captain. Every captain always has a finite,
+// positive max.
 function readCaptainMaxBid(sheet, captain) {
   const cache = CacheService.getScriptCache();
-  let json = cache.get('maxBids');
+  const json = cache.get('maxBids');
+  let map;
   if (json) {
-    return (JSON.parse(json))[captain] || 0;
+    map = JSON.parse(json);
+  } else {
+    const authSheet = SpreadsheetApp.getActive().getSheetByName(AUTH_SHEET);
+    const rows = authSheet.getDataRange().getValues();
+    map = {};
+    for (let i = 1; i < rows.length; i++) {
+      map[String(rows[i][0]).trim()] = Number(rows[i][3]) || 0;
+    }
+    cache.put('maxBids', JSON.stringify(map), 5); // 5 second TTL
   }
-  const authSheet = SpreadsheetApp.getActive().getSheetByName(AUTH_SHEET);
-  const rows = authSheet.getDataRange().getValues();
-  const map = {};
-  for (let i = 1; i < rows.length; i++) {
-    map[String(rows[i][0]).trim()] = Number(rows[i][3]) || 0;
-  }
-  cache.put('maxBids', JSON.stringify(map), 5); // 5 second TTL
-  return map[captain] || 0;
+  return map[captain] || readSmallBlind(sheet);
 }
 
 // ----- Auth sheet lookups -----
@@ -370,13 +375,43 @@ function autoSellIfTimeWindowElapsed(sheet) {
     const fresh = getLastBidTime();
     if (!fresh || Date.now() - fresh < readAutoWindowSeconds(sheet) * 1000) return;
 
-    if (!_sellPlayerInner(sheet).ok) return; // e.g. no free slot — leave it for the admin
-    clearLastBidTime();
-    clearSoldButtonUsableCell(sheet);
-    _advanceTurnInner(sheet);
+    if (!_finalizeSaleAndAdvance(sheet).ok) return; // e.g. no free slot — leave it for the admin
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * Sell the current player and advance the turn. Caller must hold the script lock.
+ * Returns the _sellPlayerInner result ({ ok, error }). Shared by the time-window
+ * auto-sell and the uncontestable-bid auto-sell in placeBid/placeOpeningBid.
+ */
+function _finalizeSaleAndAdvance(sheet) {
+  const result = _sellPlayerInner(sheet);
+  if (!result.ok) return result;
+  clearLastBidTime();
+  clearSoldButtonUsableCell(sheet);
+  _advanceTurnInner(sheet);
+  return result;
+}
+
+/** A captain can still outbid `currentBid` if they're not full and their (floored)
+ *  max bid is strictly above the current bid. */
+function captainCanOutbid(sheet, captain, currentBid, fullByName) {
+  if (fullByName[captain] === true) return false;
+  return readCaptainMaxBid(sheet, captain) > currentBid;
+}
+
+/** True when no captain other than `currentBidder` can outbid `currentBid` — i.e.
+ *  every other captain is full or capped at/below it. Covers both "all others full"
+ *  and "bid meets/exceeds all other maxes", so the player can be sold immediately. */
+function noOneCanOutbid(sheet, currentBidder, currentBid) {
+  const fullByName = readFullCaptains(sheet);
+  for (const name in fullByName) {
+    if (name === currentBidder) continue;
+    if (captainCanOutbid(sheet, name, currentBid, fullByName)) return false;
+  }
+  return true;
 }
 
 /** Flips the Sold! button from WAIT to READY once the cooldown elapses (both modes). */

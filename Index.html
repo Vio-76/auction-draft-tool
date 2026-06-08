@@ -30,7 +30,7 @@
     .timer-svg { flex-shrink: 0; }
     .sell-timer-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
     .sell-prompt { font-size: 16px; font-weight: 700; color: #4a90e2; }
-    .priced-out { padding: 12px; background: #f0f0f0; border-radius: 6px; color: #666; font-weight: 600; margin-top: 8px; }
+    .priced-out { padding: 12px; background: #fdecea; border-radius: 6px; color: #a01818; font-weight: 600; margin-top: 8px; }
     .sold-banner { padding: 12px 16px; margin-bottom: 16px; text-align: center; background: #fff6da; color: #7a5c00; border-radius: 8px; font-weight: 700; font-size: 17px; }
   </style>
 </head>
@@ -265,7 +265,7 @@
       const bidControls = state.youAreFull
         ? '<div class="team-full">Your team is full — you can\'t place bids.</div>'
         : pricedOut
-          ? '<div class="priced-out">Your max bid ($' + state.yourMaxBid + ') is too low — you can\'t outbid this.</div>'
+          ? '<div class="priced-out">Max bid reached ($' + state.yourMaxBid + ') — you can\'t outbid this.</div>'
           : '<input id="amount" type="number" min="' + (state.highestBid + 1) + '" step="1" placeholder="Your bid">' +
             '<button id="submit">Bid</button>';
 

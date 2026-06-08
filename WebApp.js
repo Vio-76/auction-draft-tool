@@ -96,8 +96,16 @@ function placeBid(captain, code, amount) {
 
     sheet.getRange(HIGHEST_BID_CELL).setValue(bid);
     sheet.getRange(BY_CAPTAIN_CELL).setValue(captain);
-    setLastBidTime();
-    setSoldButtonUsableCell(sheet, SOLD_DISABLED);
+
+    // If nobody else can outbid this, sell now instead of waiting for a timer/Sold!.
+    let sold = false;
+    if (noOneCanOutbid(sheet, captain, bid)) {
+      sold = _finalizeSaleAndAdvance(sheet).ok;
+    }
+    if (!sold) {
+      setLastBidTime();
+      setSoldButtonUsableCell(sheet, SOLD_DISABLED);
+    }
     return { ok: true };
   } finally {
     lock.releaseLock();
@@ -147,8 +155,17 @@ function placeOpeningBid(captain, code, playerName, amount) {
     sheet.getRange(HIGHEST_BID_CELL).setValue(bid);
     sheet.getRange(BY_CAPTAIN_CELL).setValue(captain);
     sheet.getRange(STATUS_CELL).setValue(STATUS_BIDDING);
-    setLastBidTime();
-    setSoldButtonUsableCell(sheet, SOLD_DISABLED);
+
+    // If nobody else can outbid this opening bid (e.g. all other teams full, or the
+    // bid meets every other captain's max), sell immediately rather than opening bidding.
+    let sold = false;
+    if (noOneCanOutbid(sheet, captain, bid)) {
+      sold = _finalizeSaleAndAdvance(sheet).ok;
+    }
+    if (!sold) {
+      setLastBidTime();
+      setSoldButtonUsableCell(sheet, SOLD_DISABLED);
+    }
     return { ok: true };
   } finally {
     lock.releaseLock();
