@@ -179,6 +179,38 @@ function isPlayerInPool(sheet, player) {
   return readOpenPlayers(sheet).indexOf(player) !== -1;
 }
 
+/** Reads open players as [{name, role}], preserving the role column the spectator board needs. */
+function readOpenPlayersWithRoles(sheet) {
+  const values = sheet.getRange(OPEN_PLAYERS_RANGE).getValues();
+  const out = [];
+  for (const row of values) {
+    for (let b = 0; b * 6 < row.length; b++) {   // each player block = 5 merged name cells + 1 role cell
+      const name = String(row[b * 6]).trim();
+      if (!name) continue;
+      const role = String(row[b * 6 + 5]).trim();
+      out.push({ name: name, role: role });
+    }
+  }
+  // Shuffle deterministically by a hash of the name (looks random, avoids alphabetical draft
+  // bias, but is stable for the same players so the board order doesn't churn as players sell).
+  out.sort(function(a, b) {
+    const ka = _shuffleKey(a.name), kb = _shuffleKey(b.name);
+    return ka === kb ? a.name.localeCompare(b.name) : ka - kb;
+  });
+  return out;
+}
+
+/** Deterministic 32-bit hash (FNV-1a) of the seeded name — a stable, random-looking sort key. */
+function _shuffleKey(name) {
+  const s = PLAYER_SHUFFLE_SEED + "|" + name;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 // ----- Small blind / max bids -----
 
 function readSmallBlind(sheet) {

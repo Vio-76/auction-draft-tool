@@ -52,6 +52,11 @@ const FULL_VALUE   = "full";
 // Player pool
 const OPEN_PLAYERS_RANGE = "E20:P34";   // adjust to wherever your open players list is
 
+// Spectator-board "Available Players" ordering: players are shuffled by a deterministic hash
+// of their name + this seed. Looks random (avoids alphabetical draft bias) but is stable for
+// the same set of players. Change the seed to get a different fixed order.
+const PLAYER_SHUFFLE_SEED = "neme-2026";
+
 // Small blind cell
 const SMALL_BLIND_CELL = "AF30";   // adjust to wherever your small blind value lives
 

@@ -65,7 +65,8 @@ function getBoardState() {
     return miss;
   }
 
-  const highestBid = readNumber(ss.getSheetByName(AUCT_SHEET), HIGHEST_BID_CELL);
+  const auctSheet = ss.getSheetByName(AUCT_SHEET);
+  const highestBid = readNumber(auctSheet, HIGHEST_BID_CELL);
   const block = boardSheet.getRange(BOARD_FIRST_ROW, 1, NUM_TEAMS, BOARD_NUM_COLS).getValues();
 
   const teams = [];
@@ -94,16 +95,21 @@ function getBoardState() {
     });
   }
 
-  const payload = { teams: teams, highestBid: highestBid };
+  const openPlayers = readOpenPlayersWithRoles(auctSheet);
+
+  const payload = { teams: teams, highestBid: highestBid, openPlayers: openPlayers };
   cache.put('boardState', JSON.stringify(payload), BOARD_CACHE_TTL_SECONDS);
   return payload;
 }
 
 /** Parses a 1/0 (or true/false) board flag cell into a boolean. */
 function _boardFlag(v) {
-  if (v === 1 || v === true) return true;
+  if (v === true) return true;
+  if (typeof v === 'number') return v >= 1;          // counts (e.g. 2 top laners) are still "drafted"
   const s = String(v).trim().toLowerCase();
-  return s === '1' || s === 'true';
+  if (s === 'true') return true;
+  const n = parseFloat(s);
+  return !isNaN(n) ? n >= 1 : false;                 // numeric strings like "2" count too
 }
 
 /**
