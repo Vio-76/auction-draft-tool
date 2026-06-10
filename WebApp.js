@@ -4,6 +4,9 @@
  */
 
 function doGet(e) {
+  const view = (e && e.parameter && e.parameter.view) || "";
+  if (view === "board") return renderBoard();
+
   const captain = (e && e.parameter && e.parameter.captain) || "";
   const code    = (e && e.parameter && e.parameter.code) || "";
   const tmpl = HtmlService.createTemplateFromFile('Index');
@@ -23,6 +26,171 @@ function doGet(e) {
   return tmpl.evaluate()
     .setTitle("Auction — " + (captain || "no captain"))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+// ----- Public read-only team board (?view=board) -----
+
+/** Renders the public spectator board. No auth — read-only, no captain-specific data. */
+function renderBoard() {
+  const icons = getRoleIconDataUris();
+  const tmpl = HtmlService.createTemplateFromFile('Board');
+  tmpl.theme = CAPTAIN_THEME;
+  tmpl.fontUrl = THEME_FONT_URLS[CAPTAIN_THEME] || THEME_FONT_URLS.draftroom;
+  tmpl.roleLabels = ROLE_LABELS;
+  tmpl.roleIcons = icons;  // { "Top": "data:image/png;base64,...", ... } — used for CSS only
+  tmpl.rolesJson = JSON.stringify(ROLE_LABELS.map(function(r) {
+    return { key: r.toLowerCase(), label: r, hasIcon: !!icons[r] };
+  }));
+  return tmpl.evaluate()
+    .setTitle("Auction — Teams")
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/**
+ * Polled by the board page every few seconds. Reads the whole Board block in one
+ * getValues() and returns the parsed teams + current live highest bid. The built payload
+ * is cached (BOARD_CACHE_TTL_SECONDS) so sheet I/O is ~1 read per interval regardless of
+ * how many spectators are watching. No auth (public, read-only).
+ */
+function getBoardState() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('boardState');
+  if (cached) return JSON.parse(cached);
+
+  const ss = SpreadsheetApp.getActive();
+  const boardSheet = ss.getSheetByName(BOARD_SHEET);
+  if (!boardSheet) {
+    const miss = { teams: [], highestBid: 0, error: "Board sheet not found." };
+    cache.put('boardState', JSON.stringify(miss), BOARD_CACHE_TTL_SECONDS);
+    return miss;
+  }
+
+  const highestBid = readNumber(ss.getSheetByName(AUCT_SHEET), HIGHEST_BID_CELL);
+  const block = boardSheet.getRange(BOARD_FIRST_ROW, 1, NUM_TEAMS, BOARD_NUM_COLS).getValues();
+
+  const teams = [];
+  for (const row of block) {
+    const captain = String(row[0]).trim();
+    if (!captain) continue;  // unused row in the block
+
+    const players = [];
+    for (let i = 0; i < TEAM_SLOTS; i++) {       // cols C/D, E/F, G/H, I/J
+      const name = String(row[2 + i * 2]).trim();
+      players.push({ name: name, price: Number(row[3 + i * 2]) || 0 });
+    }
+
+    const roles = [];
+    for (let i = 0; i < ROLE_LABELS.length; i++) {  // cols M..R
+      roles.push(_boardFlag(row[12 + i]));
+    }
+
+    teams.push({
+      captain:      captain,
+      captainPrice: Number(row[1]) || 0,    // col B
+      players:      players,
+      maxBid:       Number(row[10]) || 0,    // col K
+      full:         _boardFlag(row[11]),     // col L
+      roles:        roles,
+    });
+  }
+
+  const payload = { teams: teams, highestBid: highestBid };
+  cache.put('boardState', JSON.stringify(payload), BOARD_CACHE_TTL_SECONDS);
+  return payload;
+}
+
+/** Parses a 1/0 (or true/false) board flag cell into a boolean. */
+function _boardFlag(v) {
+  if (v === 1 || v === true) return true;
+  const s = String(v).trim().toLowerCase();
+  return s === '1' || s === 'true';
+}
+
+/**
+ * Returns { "Top": "data:<type>;base64,...", ... } for the role icons, read from Drive
+ * once and cached (icons rarely change). Only called from renderBoard at page load, never
+ * in the poll loop. Missing/unfound icons are simply omitted — the page falls back to a
+ * text label for those roles.
+ */
+function getRoleIconDataUris() {
+  const cache = CacheService.getScriptCache();
+  const keys = ROLE_LABELS.map(function(r) { return 'roleIcon_' + r; });
+  const found = cache.getAll(keys);
+  if (Object.keys(found).length === ROLE_LABELS.length) {
+    const m = {};
+    ROLE_LABELS.forEach(function(r) { m[r] = found['roleIcon_' + r]; });
+    return m;
+  }
+
+  const map = _buildRoleIconDataUris();
+  const toCache = {};
+  ROLE_LABELS.forEach(function(r) { if (map[r]) toCache['roleIcon_' + r] = map[r]; });
+  try {
+    if (Object.keys(toCache).length) cache.putAll(toCache, 21600); // 6h
+  } catch (err) { /* icon too large to cache — fine, it's only read at page load */ }
+  return map;
+}
+
+function _buildRoleIconDataUris() {
+  const map = {};
+  let folder = null;
+  for (const role of ROLE_LABELS) {
+    try {
+      let file = null;
+      if (ROLE_ICON_FILE_IDS && ROLE_ICON_FILE_IDS[role]) {
+        file = DriveApp.getFileById(ROLE_ICON_FILE_IDS[role]);
+      } else if (ROLE_ICON_FOLDER_ID) {
+        if (!folder) folder = DriveApp.getFolderById(ROLE_ICON_FOLDER_ID);
+        file = _findIconFileInFolder(folder, role);
+      }
+      if (file) {
+        const blob = file.getBlob();
+        map[role] = 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
+      }
+    } catch (err) { /* leave this role iconless; UI shows a text fallback */ }
+  }
+  return map;
+}
+
+/**
+ * Run this ONCE from the Apps Script editor (Run ▸ debugRoleIcons) to:
+ *   1. trigger the Drive authorization prompt for the deploying account, and
+ *   2. log which role icons resolve, plus the actual file names in the folder
+ *      (so you can fix the folder ID or rename files to match ROLE_LABELS).
+ * The web app can't show this prompt to anonymous viewers — only you, the owner, can grant it.
+ */
+function debugRoleIcons() {
+  // Clear any cached icon results so this reads fresh from Drive.
+  CacheService.getScriptCache().removeAll(ROLE_LABELS.map(function(r) { return 'roleIcon_' + r; }));
+
+  Logger.log('ROLE_ICON_FOLDER_ID = "' + ROLE_ICON_FOLDER_ID + '"');
+  if (ROLE_ICON_FOLDER_ID) {
+    const folder = DriveApp.getFolderById(ROLE_ICON_FOLDER_ID);  // throws here if unauthorized / bad ID
+    Logger.log('Folder found: "' + folder.getName() + '". Files inside:');
+    const files = folder.getFiles();
+    while (files.hasNext()) {
+      const f = files.next();
+      Logger.log('  • ' + f.getName() + '  [' + f.getBlob().getContentType() + ']');
+    }
+  }
+
+  const map = _buildRoleIconDataUris();
+  Logger.log('Resolved icons (expecting one per role in ROLE_LABELS):');
+  ROLE_LABELS.forEach(function(r) {
+    Logger.log('  ' + r + ': ' + (map[r] ? 'OK' : 'MISSING — no file named "' + r.toLowerCase() + '" in the folder'));
+  });
+}
+
+/** Finds a file in `folder` whose name (without extension) equals the role, case-insensitively. */
+function _findIconFileInFolder(folder, role) {
+  const target = role.toLowerCase();
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const f = files.next();
+    const base = f.getName().toLowerCase().replace(/\.[a-z0-9]+$/, '');
+    if (base === target) return f;
+  }
+  return null;
 }
 
 /** Called by the captain webpage every second. */

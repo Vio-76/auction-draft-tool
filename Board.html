@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="<?= fontUrl ?>">
+  <style>
+    /* ===========================================================
+       THEME TOKENS — kept in sync with Index.html (the captain page).
+       Base :root = "draftroom"; each [data-theme="..."] overrides the
+       tokens. Active theme = Config.js CAPTAIN_THEME -> body[data-theme].
+       =========================================================== */
+    :root {
+      --bg:#0c0e13;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(246,181,60,.16), transparent 60%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(52,226,155,.06), transparent 60%);
+      --grain-opacity:.04;
+      --surface:#15181f;
+      --surface-2:#1c2029;
+      --card: linear-gradient(180deg, var(--surface-2), var(--surface));
+      --card-border:1px solid var(--line);
+      --line:rgba(255,255,255,.07);
+      --line-strong:rgba(255,255,255,.14);
+      --ink:#f3f1ea;
+      --muted:#878c98;
+      --accent:#f6b53c;
+      --accent-strong:#ffc759;
+      --accent-ink:#1a1205;
+      --accent-soft:rgba(246,181,60,.1);
+      --accent-border:rgba(246,181,60,.3);
+      --accent-glow:0 6px 18px -6px rgba(246,181,60,.6);
+      --eyebrow:#caa044;
+      --positive:#34e29b;
+      --positive-soft:rgba(52,226,155,.08);
+      --positive-border:rgba(52,226,155,.3);
+      --danger:#ff5b54;
+      --danger-soft:rgba(255,91,84,.1);
+      --danger-border:rgba(255,91,84,.35);
+      --ring-track:rgba(255,255,255,0.12);
+      --radius:16px;
+      --control-radius:12px;
+      --shadow:0 18px 40px -12px rgba(0,0,0,.7);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(246,181,60,0));
+      --sold-bg: linear-gradient(90deg, rgba(246,181,60,.18), rgba(246,181,60,.04));
+      --focus-ring:0 0 0 3px rgba(246,181,60,.18);
+      --disabled-bg:#2a2e37;
+      --disabled-ink:#6a6f7a;
+      --btn-active-shift:translateY(1px);
+      --font-display:'Oswald', sans-serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:700;
+      --display-transform:uppercase;
+      --display-spacing:.01em;
+      --player-size:40px;
+      --bid-size:42px;
+    }
+
+    /* ---- auction house (light, lot-card luxury) ---- */
+    [data-theme="auctionhouse"] {
+      --bg:#f3ede1;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(154,123,63,.16), transparent 60%),
+                 radial-gradient(100% 50% at 50% 120%, rgba(154,123,63,.06), transparent 60%);
+      --grain-opacity:.05;
+      --surface:#fbf7ef; --surface-2:#fffdf8;
+      --card: linear-gradient(180deg, #fffdf8, #f8f2e7);
+      --line:rgba(50,38,20,.12); --line-strong:rgba(50,38,20,.2);
+      --ink:#241d12; --muted:#8a7c66;
+      --accent:#9a7b3f; --accent-strong:#b5934f; --accent-ink:#fffdf8;
+      --accent-soft:rgba(154,123,63,.12); --accent-border:rgba(154,123,63,.35);
+      --accent-glow:0 8px 20px -10px rgba(154,123,63,.5); --eyebrow:#9a7b3f;
+      --positive:#3f7d52; --positive-soft:rgba(63,125,82,.1); --positive-border:rgba(63,125,82,.3);
+      --danger:#a8362b; --danger-soft:rgba(168,54,43,.08); --danger-border:rgba(168,54,43,.3);
+      --ring-track:rgba(50,38,20,.14);
+      --radius:7px; --control-radius:6px;
+      --shadow:0 14px 34px -18px rgba(50,38,20,.35);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(154,123,63,0));
+      --sold-bg: linear-gradient(90deg, rgba(154,123,63,.16), rgba(154,123,63,.03));
+      --focus-ring:0 0 0 3px rgba(154,123,63,.2);
+      --disabled-bg:#e6ded0; --disabled-ink:#a99e8a;
+      --font-display:'Fraunces', Georgia, serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'Fraunces', Georgia, serif;
+      --display-weight:600; --display-transform:none; --display-spacing:.005em;
+      --player-size:42px; --bid-size:44px;
+    }
+
+    /* ---- terminal (green-on-black trading floor) ---- */
+    [data-theme="terminal"] {
+      --bg:#060a08;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(35,224,138,.12), transparent 60%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(35,224,138,.05), transparent 60%);
+      --grain-opacity:.06;
+      --surface:#0a110d; --surface-2:#0d1712;
+      --card: linear-gradient(180deg, #0d1712, #0a110d);
+      --line:rgba(60,255,160,.12); --line-strong:rgba(60,255,160,.24);
+      --ink:#c9f7d8; --muted:#5d9173;
+      --accent:#23e08a; --accent-strong:#43ffa3; --accent-ink:#04140c;
+      --accent-soft:rgba(35,224,138,.12); --accent-border:rgba(35,224,138,.35);
+      --accent-glow:0 0 18px -2px rgba(35,224,138,.5); --eyebrow:#23e08a;
+      --positive:#23e08a; --positive-soft:rgba(35,224,138,.1); --positive-border:rgba(35,224,138,.3);
+      --danger:#ff5b54; --danger-soft:rgba(255,91,84,.1); --danger-border:rgba(255,91,84,.35);
+      --ring-track:rgba(60,255,160,.14);
+      --radius:3px; --control-radius:2px;
+      --shadow:0 0 0 1px rgba(35,224,138,.08), 0 18px 40px -20px rgba(0,0,0,.8);
+      --topbar: linear-gradient(90deg, var(--accent), rgba(35,224,138,0));
+      --sold-bg: linear-gradient(90deg, rgba(35,224,138,.16), rgba(35,224,138,.03));
+      --focus-ring:0 0 0 3px rgba(35,224,138,.2);
+      --disabled-bg:#16241c; --disabled-ink:#4a6b56;
+      --font-display:'JetBrains Mono', monospace;
+      --font-body:'JetBrains Mono', monospace;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:700; --display-transform:uppercase; --display-spacing:.02em;
+      --player-size:34px; --bid-size:40px;
+    }
+    [data-theme="terminal"] .team-card {
+      background: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(0,30,15,.22) 4px), var(--card);
+    }
+    [data-theme="terminal"] .card-eyebrow::before { content:'> '; }
+
+    /* ---- broadcast (draft-night TV lower-thirds) ---- */
+    [data-theme="broadcast"] {
+      --bg:#081226;
+      --bg-glow: radial-gradient(120% 80% at 50% -10%, rgba(255,59,48,.18), transparent 55%),
+                 radial-gradient(100% 60% at 50% 120%, rgba(255,210,63,.08), transparent 60%);
+      --grain-opacity:.05;
+      --surface:#0d1c3a; --surface-2:#13264c;
+      --card: linear-gradient(180deg, #13264c, #0d1c3a);
+      --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.2);
+      --ink:#f3f7ff; --muted:#9fb2d8;
+      --accent:#ff3b30; --accent-strong:#ff5a50; --accent-ink:#ffffff;
+      --accent-soft:rgba(255,59,48,.14); --accent-border:rgba(255,59,48,.4);
+      --accent-glow:0 8px 20px -8px rgba(255,59,48,.6); --eyebrow:#ffd23f;
+      --positive:#3ddc84; --positive-soft:rgba(61,220,132,.12); --positive-border:rgba(61,220,132,.35);
+      --danger:#ffd23f; --danger-soft:rgba(255,210,63,.12); --danger-border:rgba(255,210,63,.4);
+      --ring-track:rgba(255,255,255,.16);
+      --radius:5px; --control-radius:4px;
+      --shadow:0 16px 38px -14px rgba(0,0,0,.75);
+      --topbar: linear-gradient(90deg, var(--accent) 0, var(--accent) 60%, #ffd23f 60%, #ffd23f 100%);
+      --sold-bg: linear-gradient(90deg, rgba(255,59,48,.2), rgba(255,210,63,.06));
+      --focus-ring:0 0 0 3px rgba(255,59,48,.25);
+      --disabled-bg:#1d2c4a; --disabled-ink:#6d80a6;
+      --font-display:'Anton', sans-serif;
+      --font-body:'Archivo', sans-serif;
+      --font-mono:'Archivo', sans-serif;
+      --display-weight:400; --display-transform:uppercase; --display-spacing:.02em;
+      --player-size:46px; --bid-size:48px;
+    }
+    [data-theme="broadcast"] .card-eyebrow {
+      display:inline-block; background:var(--accent); color:#fff;
+      padding:4px 10px 3px; letter-spacing:.18em; transform:skewX(-9deg); border-radius:2px;
+    }
+
+    /* ---- brutalist (stark paper + alarm red) ---- */
+    [data-theme="brutalist"] {
+      --bg:#eceae3; --bg-glow:none; --grain-opacity:0;
+      --surface:#ffffff; --surface-2:#ffffff;
+      --card:#ffffff; --card-border:3px solid #111111;
+      --line:#111111; --line-strong:#111111;
+      --ink:#0a0a0a; --muted:#444444;
+      --accent:#ff2a00; --accent-strong:#ff2a00; --accent-ink:#ffffff;
+      --accent-soft:rgba(255,42,0,.1); --accent-border:#111111;
+      --accent-glow:6px 6px 0 #111111; --eyebrow:#0a0a0a;
+      --positive:#0a7d2c; --positive-soft:rgba(10,125,44,.1); --positive-border:#111111;
+      --danger:#ff2a00; --danger-soft:rgba(255,42,0,.1); --danger-border:#111111;
+      --ring-track:rgba(10,10,10,.18);
+      --radius:0px; --control-radius:0px;
+      --shadow:6px 6px 0 #111111;
+      --topbar:#111111;
+      --sold-bg:#ffffff;
+      --focus-ring:0 0 0 3px rgba(255,42,0,.3);
+      --disabled-bg:#d6d4cc; --disabled-ink:#8a887f;
+      --font-display:'Archivo', sans-serif;
+      --font-body:'Archivo', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:900; --display-transform:uppercase; --display-spacing:-.02em;
+      --player-size:46px; --bid-size:56px;
+    }
+    [data-theme="brutalist"] .team-card::before { height:6px; }
+
+    /* ---- casino (poker felt + neon + gold chips) ---- */
+    [data-theme="casino"] {
+      --bg:#0a2a1a;
+      --bg-glow: radial-gradient(110% 70% at 50% -10%, rgba(255,208,46,.18), transparent 55%),
+                 radial-gradient(90% 60% at 12% 110%, rgba(255,77,109,.18), transparent 55%),
+                 radial-gradient(90% 60% at 88% 110%, rgba(64,206,255,.14), transparent 55%);
+      --grain-opacity:.07;
+      --surface:#0e3522; --surface-2:#114229;
+      --card: linear-gradient(180deg, #124a2e, #0d3a23);
+      --line:rgba(255,255,255,.1); --line-strong:rgba(255,255,255,.2);
+      --ink:#fff6e9; --muted:#8fbfa3;
+      --accent:#ffd02e; --accent-strong:#ffe16a; --accent-ink:#3a2a00;
+      --accent-soft:rgba(255,208,46,.14); --accent-border:rgba(255,208,46,.4);
+      --accent-glow:0 0 22px -2px rgba(255,208,46,.65); --eyebrow:#ff4d6d;
+      --positive:#39e0a0; --positive-soft:rgba(57,224,160,.12); --positive-border:rgba(57,224,160,.35);
+      --danger:#ff4d6d; --danger-soft:rgba(255,77,109,.12); --danger-border:rgba(255,77,109,.4);
+      --ring-track:rgba(255,255,255,.16);
+      --radius:18px; --control-radius:999px;
+      --shadow:0 18px 40px -14px rgba(0,0,0,.7), 0 0 0 1px rgba(255,208,46,.1);
+      --topbar: linear-gradient(90deg, #ff4d6d, #ffd02e 50%, #40ceff);
+      --sold-bg: linear-gradient(90deg, rgba(255,208,46,.2), rgba(255,77,109,.06));
+      --focus-ring:0 0 0 3px rgba(255,208,46,.28);
+      --disabled-bg:#1a3a28; --disabled-ink:#5f8f73;
+      --font-display:'Bungee', sans-serif;
+      --font-body:'Outfit', sans-serif;
+      --font-mono:'JetBrains Mono', monospace;
+      --display-weight:400; --display-transform:uppercase; --display-spacing:.01em;
+      --player-size:36px; --bid-size:44px;
+    }
+    [data-theme="casino"] .team-maxbid { text-shadow:0 0 16px rgba(255,208,46,.5); }
+    [data-theme="casino"] .card-eyebrow { text-shadow:0 0 12px rgba(255,77,109,.6); }
+
+    /* ===========================================================
+       BOARD LAYOUT (token-driven)
+       =========================================================== */
+    * { box-sizing: border-box; }
+
+    body {
+      margin:0; min-height:100vh;
+      font-family:var(--font-body);
+      color:var(--ink);
+      background: var(--bg-glow), var(--bg);
+      background-attachment:fixed;
+      -webkit-font-smoothing:antialiased;
+    }
+    body::before {
+      content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity:var(--grain-opacity); mix-blend-mode:overlay;
+    }
+
+    .board-shell { position:relative; z-index:1; max-width:1440px; margin:0 auto; padding:30px 22px 56px; }
+
+    .board-head { margin:0 0 22px; display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;
+      padding-bottom:18px; border-bottom:1px solid var(--line); }
+    .board-eyebrow {
+      font-family:var(--font-display); font-weight:500; font-size:12px;
+      letter-spacing:.32em; text-transform:uppercase; color:var(--accent);
+    }
+    .board-title {
+      font-family:var(--font-display); font-weight:var(--display-weight); font-size:34px; line-height:1;
+      letter-spacing:var(--display-spacing); text-transform:var(--display-transform); margin:0;
+    }
+    .board-sub { font-size:13px; color:var(--muted); margin-left:auto; font-family:var(--font-mono); }
+
+    .team-grid {
+      display:grid; gap:16px;
+      grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+    }
+
+    .team-card {
+      position:relative; overflow:hidden;
+      background:var(--card); border:var(--card-border); border-radius:var(--radius);
+      padding:18px 17px 16px; box-shadow:var(--shadow);
+      animation:cardIn .25s ease both;
+    }
+    .team-card::before {
+      content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--topbar);
+    }
+
+    .team-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .card-eyebrow {
+      font-family:var(--font-display); font-weight:500; font-size:10px;
+      letter-spacing:.3em; text-transform:uppercase; color:var(--eyebrow);
+    }
+    .team-captain {
+      font-family:var(--font-display); font-weight:var(--display-weight); font-size:25px; line-height:1.04;
+      text-transform:var(--display-transform); letter-spacing:var(--display-spacing); margin:3px 0 0;
+      word-break:break-word;
+    }
+    .team-captain-price { font-family:var(--font-mono); font-size:13px; color:var(--muted); margin-top:4px; }
+    .team-captain-price b { color:var(--ink); font-weight:700; }
+    .team-maxbid-wrap { text-align:right; flex-shrink:0; }
+    .team-maxbid-label { font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+    .team-maxbid {
+      font-family:var(--font-mono); font-weight:700; font-size:22px; line-height:1.1; color:var(--accent);
+      letter-spacing:-.02em;
+    }
+    .team-maxbid.dim { color:var(--muted); opacity:.75; }
+
+    .roster { display:flex; flex-direction:column; gap:1px; margin-bottom:14px; }
+    .roster-row {
+      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+      padding:7px 0; border-bottom:1px solid var(--line);
+    }
+    .roster-row:last-child { border-bottom:none; }
+    .slot-name { font-size:15px; font-weight:500; word-break:break-word; }
+    .roster-row.empty .slot-name { color:var(--muted); font-weight:400; }
+    .slot-price { font-family:var(--font-mono); font-size:13px; color:var(--muted); flex-shrink:0; }
+
+    .roles { display:flex; gap:7px; flex-wrap:wrap; }
+    .role {
+      width:28px; height:28px; border-radius:var(--control-radius);
+      background-size:62% 62%; background-repeat:no-repeat; background-position:center;
+      background-color:var(--surface); border:1px solid var(--line);
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--muted);
+      opacity:.32; filter:grayscale(1); transition:opacity .2s, filter .2s, border-color .2s, background-color .2s;
+    }
+    .role.on {
+      opacity:1; filter:none; color:var(--accent-ink);
+      background-color:var(--positive-soft); border-color:var(--positive-border);
+    }
+    /* Fill is the flexible role — push it to the right end, apart from the five lane roles. */
+    .role-fill { margin-left:auto; }
+
+    .board-empty {
+      grid-column:1 / -1; padding:44px 22px; text-align:center; color:var(--muted);
+      background:var(--surface); border:1px dashed var(--line-strong); border-radius:var(--radius); font-size:16px;
+    }
+
+    @keyframes cardIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* Per-role icon backgrounds (data URIs inlined once; the browser fetches no images). */
+<? for (var _i = 0; _i < roleLabels.length; _i++) { var _r = roleLabels[_i]; if (roleIcons[_r]) { ?>
+    .role-<?= _r.toLowerCase() ?> { background-image:url("<?!= roleIcons[_r] ?>"); }
+<? } } ?>
+  </style>
+</head>
+<body data-theme="<?= theme ?>">
+  <div class="board-shell">
+    <div class="board-head">
+      <div>
+        <div class="board-eyebrow">Auction Draft</div>
+        <h1 class="board-title">Teams</h1>
+      </div>
+      <div class="board-sub" id="board-sub"></div>
+    </div>
+    <div class="team-grid" id="board"></div>
+  </div>
+
+  <script>
+    const ROLES = <?!= rolesJson ?>;
+
+    // Poll cadence: jittered so 100 spectators don't fire in lockstep, paused while the
+    // tab is hidden, and backed off on error. Keeps the shared ~30-execution cap safe.
+    const POLL_MIN = 2500, POLL_MAX = 3500, BACKOFF_STEP = 2000, BACKOFF_MAX = 10000;
+    let pollTimer = null;
+    let backoff = 0;
+    let cardEls = {};        // captain -> { el, key } — persistent card elements, updated in place
+    let messageShown = false; // true while an empty/error placeholder is showing
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function(c) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+      });
+    }
+
+    function nextDelay() {
+      return POLL_MIN + Math.random() * (POLL_MAX - POLL_MIN) + backoff;
+    }
+    function scheduleNext(delay) {
+      clearTimeout(pollTimer);
+      pollTimer = setTimeout(poll, delay);
+    }
+
+    function poll() {
+      if (document.hidden) return;   // paused; visibilitychange resumes the chain
+      google.script.run
+        .withSuccessHandler(onState)
+        .withFailureHandler(onFail)
+        .getBoardState();
+    }
+    function onState(state) {
+      backoff = 0;
+      render(state);
+      scheduleNext(nextDelay());
+    }
+    function onFail() {
+      backoff = Math.min(backoff + BACKOFF_STEP, BACKOFF_MAX);
+      scheduleNext(nextDelay());
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) { backoff = 0; clearTimeout(pollTimer); poll(); }
+    });
+
+    // Persistent card per captain. Each card's DOM is built ONCE (with cached refs to its
+    // mutable parts); every poll only updates the text/classes that actually changed and
+    // never recreates the role-icon elements — so there is nothing to re-decode or
+    // re-animate, and the board stays still even while values update.
+    function render(state) {
+      const root = document.getElementById('board');
+      if (!state) return;
+      if (state.error) { showMessage(root, esc(state.error)); return; }
+
+      const teams = state.teams || [];
+      const high = state.highestBid || 0;
+
+      if (!teams.length) { showMessage(root, 'No teams yet.'); updateSub(0); return; }
+      if (messageShown) { root.innerHTML = ''; cardEls = {}; messageShown = false; }
+
+      const seen = {};
+      for (let i = 0; i < teams.length; i++) {
+        const t = teams[i];
+        const dim = t.full || (t.maxBid <= high);   // gray when full or can't outbid the live high bid
+        seen[t.captain] = true;
+
+        let card = cardEls[t.captain];
+        if (!card) card = cardEls[t.captain] = buildCard(t);
+        updateCard(card, t, dim);
+
+        // Keep DOM order matching team order (no-op when already in place).
+        if (root.children[i] !== card.el) root.insertBefore(card.el, root.children[i] || null);
+      }
+
+      // Drop cards for teams that disappeared.
+      for (const cap in cardEls) {
+        if (!seen[cap]) { root.removeChild(cardEls[cap].el); delete cardEls[cap]; }
+      }
+      updateSub(teams.length);
+    }
+
+    function showMessage(root, msg) {
+      root.innerHTML = '<div class="board-empty">' + msg + '</div>';
+      cardEls = {};
+      messageShown = true;
+    }
+
+    function updateSub(n) {
+      const sub = document.getElementById('board-sub');
+      if (sub) sub.textContent = n + (n === 1 ? ' team' : ' teams');
+    }
+
+    // ----- card build (once) / update (in place) -----
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    }
+    function setText(node, v) { if (node.textContent !== v) node.textContent = v; }
+
+    function buildCard(t) {
+      const card = { el: el('div', 'team-card') };
+
+      const head = el('div', 'team-head');
+      const idCol = el('div');
+      idCol.appendChild(el('div', 'card-eyebrow', 'Captain'));
+      card.captain = el('div', 'team-captain');
+      idCol.appendChild(card.captain);
+      const priceLine = el('div', 'team-captain-price');
+      priceLine.appendChild(document.createTextNode('Price '));
+      card.captainPrice = el('b');
+      priceLine.appendChild(card.captainPrice);
+      idCol.appendChild(priceLine);
+      head.appendChild(idCol);
+
+      const bidCol = el('div', 'team-maxbid-wrap');
+      bidCol.appendChild(el('div', 'team-maxbid-label', 'Max bid'));
+      card.maxBid = el('div', 'team-maxbid');
+      bidCol.appendChild(card.maxBid);
+      head.appendChild(bidCol);
+      card.el.appendChild(head);
+
+      const roster = el('div', 'roster');
+      card.slots = [];
+      const slotCount = (t.players || []).length;
+      for (let i = 0; i < slotCount; i++) {
+        const row = el('div', 'roster-row');
+        const name = el('span', 'slot-name');
+        const price = el('span', 'slot-price');
+        row.appendChild(name);
+        row.appendChild(price);
+        roster.appendChild(row);
+        card.slots.push({ row: row, name: name, price: price });
+      }
+      card.el.appendChild(roster);
+
+      const rolesWrap = el('div', 'roles');
+      card.roles = [];
+      for (let i = 0; i < ROLES.length; i++) {
+        const r = ROLES[i];
+        const rEl = el('div', 'role role-' + r.key, r.hasIcon ? '' : r.label.slice(0, 3));
+        rEl.title = r.label;
+        rolesWrap.appendChild(rEl);
+        card.roles.push(rEl);
+      }
+      card.el.appendChild(rolesWrap);
+
+      return card;
+    }
+
+    function updateCard(card, t, dim) {
+      setText(card.captain, t.captain);
+      setText(card.captainPrice, '$' + t.captainPrice);
+      setText(card.maxBid, '$' + t.maxBid);
+      card.maxBid.classList.toggle('dim', !!dim);
+
+      const players = t.players || [];
+      for (let i = 0; i < card.slots.length; i++) {
+        const s = card.slots[i];
+        const p = players[i];
+        if (p && p.name) {
+          s.row.classList.remove('empty');
+          setText(s.name, p.name);
+          setText(s.price, '$' + p.price);
+        } else {
+          s.row.classList.add('empty');
+          setText(s.name, '—');
+          setText(s.price, '');
+        }
+      }
+
+      const flags = t.roles || [];
+      for (let i = 0; i < card.roles.length; i++) {
+        card.roles[i].classList.toggle('on', !!flags[i]);
+      }
+    }
+
+    poll();
+  </script>
+</body>
+</html>

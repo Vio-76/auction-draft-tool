@@ -107,3 +107,36 @@ const THEME_FONT_URLS = {
   brutalist:    "https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap",
   casino:       "https://fonts.googleapis.com/css2?family=Bungee&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap",
 };
+
+// ----- Public team board (read-only spectator page) -----
+// Served from the same web-app URL with ?view=board. No captain name/code needed.
+// Reads a single dedicated "Board" data block so the whole board is one batched read,
+// then caches the built payload (see WebApp.js#getBoardState) — keeps it fast and within
+// Google limits even with ~100 spectators polling. See CLAUDE.md "Scale & Google limits".
+
+const BOARD_SHEET     = "Board";   // dedicated tab holding the consolidated board block
+const BOARD_FIRST_ROW = 2;         // row 1 is headers; team rows start here
+const NUM_TEAMS       = 20;        // max team rows read from the block (blank-captain rows skipped)
+const BOARD_NUM_COLS  = 18;        // columns A..R (see the layout below)
+
+// Board block layout, one row per team (cols A..R):
+//   A  captain name            (identifies the team)
+//   B  captain price           (the captain's own cost; feeds the max-bid calc)
+//   C/D  player1 name / price   E/F  player2    G/H  player3   I/J  player4
+//   K  max bid                 L  full? (1/0)
+//   M..R  role-drafted flags (1/0) in ROLE_LABELS order
+// PRICE pairs are read via TEAM_SLOTS (4 drafted slots) from Helpers/Config.
+
+// Role order — matches the 6 role-flag columns (L..Q) AND the role icon set.
+const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support", "Fill"];
+
+// Role icons (transparent-background PNGs, same as the sheet). The script reads them from
+// Drive once at page load, base64-inlines them, and caches them — the browser fetches no
+// images. Provide EITHER a folder of files named per role (e.g. "top.png") OR explicit IDs.
+const ROLE_ICON_FOLDER_ID = "1em-bKBSfS7SaYNmpLQTtp7B0Zz9hifAG";    // <-- Drive folder ID containing the 6 role icons
+const ROLE_ICON_FILE_IDS  = {};    // optional override, e.g. { Top: "<fileId>", ... }
+
+// Board poll/cache cadence. The board only needs to refresh every few seconds; a short
+// server cache means actual sheet reads are capped at ~1 per this interval no matter how
+// many spectators are watching.
+const BOARD_CACHE_TTL_SECONDS = 3;
