@@ -98,6 +98,9 @@ function startAuction() {
     // Clear the marker so advanceTurn starts from index 0
     const numRows = TRACKER_LAST_ROW - TRACKER_FIRST_ROW + 1;
     sheet.getRange(TRACKER_FIRST_ROW, TRACKER_MARKER_COL, numRows, 1).clearContent();
+
+    // Reset snake direction to DOWN/forward so a fresh auction starts heading down the list.
+    writeTurnDirection(sheet, 1);
   } finally {
     lock.releaseLock();
   }
@@ -115,6 +118,13 @@ function setSellModeAuto() {
 function setSellModeManual() {
   SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET)
     .getRange(SELL_MODE_CELL).setValue(SELL_MODE_MANUAL);
+}
+
+/** Button: "Toggle Turn Order". Flips the turn-order cell between WATERFALL and SNAKE. */
+function toggleTurnOrder() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  const next = readTurnOrder(sheet) === TURN_ORDER_SNAKE ? TURN_ORDER_WATERFALL : TURN_ORDER_SNAKE;
+  sheet.getRange(TURN_ORDER_CELL).setValue(next);
 }
 
 /** Button: "Skip Captain". Admin-only — skips whoever currently has the turn. */

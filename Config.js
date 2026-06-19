@@ -84,12 +84,42 @@ const SOLD_BUTTON_USABLE_CELL = "T69";   // adjust to a free cell
 
 const SELL_MODE_AUTO   = "AUTO";
 const SELL_MODE_MANUAL = "MANUAL";
+
+// ----- Turn order (how the opening-bid turn rotates) -----
+
+// Cell holding the current turn order: "WATERFALL" or "SNAKE" (give it a dropdown).
+const TURN_ORDER_CELL = "Y69";   // adjust to a free cell near the tracker / sell-mode cell
+const TURN_ORDER_WATERFALL = "WATERFALL";  // straight down the list, wrap to top (default)
+const TURN_ORDER_SNAKE     = "SNAKE";      // bounce at the ends, end captain goes back-to-back
+
+// Snake direction, kept on the sheet so the admin can see/override it live.
+// "DOWN" = moving down the tracker list (+1, forward); "UP" = moving up (-1, reverse).
+const TURN_DIRECTION_CELL = "C16";   // adjust to a free cell near TURN_ORDER_CELL
+const TURN_DIR_DOWN = "DOWN";   // forward / +1 (default)
+const TURN_DIR_UP   = "UP";     // reverse / -1
 const SOLD_ENABLED  = "ENABLED";
 const SOLD_DISABLED = "DISABLED";
 
 // Fallbacks used when the corresponding cell is blank or invalid.
 const DEFAULT_AUTO_WINDOW_SECONDS   = 15;
 const DEFAULT_SOLD_COOLDOWN_SECONDS = 3;
+
+// ----- Rules & links panel (captain page + spectator board) -----
+// Shown in the collapsible "Rules & Links" panel on both the captain page and the board.
+// Edit freely — both pages read from this single list.
+const AUCTION_RULES = [
+  "Each captain drafts 4 players to fill their team (you are the 5th).",
+  "On your turn you have 30 seconds to open bidding on an available player.",
+  "Once bidding is open, anyone can bid until the admin marks the player Sold.",
+  "Your max bid is fixed — you cannot bid above it.",
+  // ...edit / add your real rules here...
+];
+
+// Extra links shown on the CAPTAIN page beside the auto-added "View Team Board" link.
+// e.g. { label: "Auction Sheet", url: "https://..." }
+const CAPTAIN_LINKS = [
+  // { label: "Full Rules", url: "https://..." },
+];
 
 // ----- Captain page theme -----
 // Visual theme for the captain web page. Change this one value (then redeploy)

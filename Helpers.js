@@ -108,6 +108,31 @@ function findNextAvailableIndex(currentIdx, names, fullByName) {
   return -1;
 }
 
+/**
+ * Next non-full index in SNAKE order, plus the resulting direction (+1 down / -1 up).
+ * Bounces at index 0 and n-1 with the end captain repeating (true back-to-back snake);
+ * full captains are skipped in the current direction. Returns { idx: -1, ... } if all full.
+ */
+function findNextSnakeIndex(currentIdx, direction, names, fullByName) {
+  const n = names.length;
+  // Fresh start (marker cleared by startAuction): scan forward from the top.
+  if (currentIdx === -1) {
+    for (let i = 0; i < n; i++) {
+      if (fullByName[names[i]] !== true) return { idx: i, direction: 1 };
+    }
+    return { idx: -1, direction: 1 };
+  }
+  let dir = direction;
+  let idx = currentIdx;
+  for (let guard = 0; guard < 4 * n; guard++) {   // guard against an all-full loop
+    let nxt = idx + dir;
+    if (nxt < 0 || nxt >= n) { dir = -dir; nxt = idx; }  // bounce: same end goes again
+    idx = nxt;
+    if (fullByName[names[idx]] !== true) return { idx: idx, direction: dir };
+  }
+  return { idx: -1, direction: dir };
+}
+
 /** Writes the marker at `nextIdx`, or the finished message if -1. */
 function writeMarker(sheet, nextIdx) {
   const numRows = TRACKER_LAST_ROW - TRACKER_FIRST_ROW + 1;
@@ -244,7 +269,16 @@ function getOpeningTurnSecondsRemaining() {
 function _advanceTurnInner(sheet) {
   const tracker = readTracker(sheet);
   const fullByName = readFullCaptains(sheet);
-  const nextIdx = findNextAvailableIndex(tracker.markerIdx, tracker.names, fullByName);
+
+  let nextIdx;
+  if (readTurnOrder(sheet) === TURN_ORDER_SNAKE) {
+    const step = findNextSnakeIndex(tracker.markerIdx, readTurnDirection(sheet), tracker.names, fullByName);
+    nextIdx = step.idx;
+    writeTurnDirection(sheet, step.direction);
+  } else {
+    nextIdx = findNextAvailableIndex(tracker.markerIdx, tracker.names, fullByName);
+  }
+
   writeMarker(sheet, nextIdx);
   if (nextIdx !== -1) {
     sheet.getRange(STATUS_CELL).setValue(STATUS_OPENING);
@@ -278,6 +312,24 @@ function autoSkipIfDeadlinePassed() {
 function readSellMode(sheet) {
   return readCell(sheet, SELL_MODE_CELL).toUpperCase() === SELL_MODE_AUTO
     ? SELL_MODE_AUTO : SELL_MODE_MANUAL;
+}
+
+// ----- Turn order (waterfall vs snake) -----
+
+/** Current turn order from the sheet. Defaults to WATERFALL (today's behavior). */
+function readTurnOrder(sheet) {
+  return readCell(sheet, TURN_ORDER_CELL).toUpperCase() === TURN_ORDER_SNAKE
+    ? TURN_ORDER_SNAKE : TURN_ORDER_WATERFALL;
+}
+
+/** Snake direction as a number for the walker: -1 (UP/reverse) or +1 (DOWN/forward, default). */
+function readTurnDirection(sheet) {
+  return readCell(sheet, TURN_DIRECTION_CELL).toUpperCase() === TURN_DIR_UP ? -1 : 1;
+}
+
+/** Writes the snake direction back as the human-readable DOWN/UP the admin sees. */
+function writeTurnDirection(sheet, dir) {
+  sheet.getRange(TURN_DIRECTION_CELL).setValue(dir === -1 ? TURN_DIR_UP : TURN_DIR_DOWN);
 }
 
 function readAutoWindowSeconds(sheet) {
