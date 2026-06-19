@@ -281,6 +281,12 @@
       font-size:22px; letter-spacing:.04em; text-transform:uppercase;
       animation:cardIn .25s ease both;
     }
+    /* Friendly secondary line under a waiting/finished message — resets the loud styling. */
+    .state-hint {
+      display:block; margin-top:12px; font-family:var(--font-body); font-weight:400;
+      font-size:14px; line-height:1.45; letter-spacing:0; text-transform:none; color:var(--muted);
+    }
+    .state-hint b { color:var(--ink); }
 
     .player-card {
       position:relative; overflow:hidden;
@@ -394,6 +400,43 @@
     @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
     @keyframes ping { 0% { transform:scale(1.08); } 60% { transform:scale(1); } 100% { transform:scale(1); } }
     @keyframes blink { 50% { opacity:0; } }
+
+    /* ----- Rules & links panel: floating in the bottom-right corner (shared with Board.html — keep in sync) ----- */
+    .info-panel {
+      position:fixed; right:16px; bottom:16px; z-index:60;
+      display:flex; flex-direction:column-reverse; align-items:flex-end; gap:8px;
+      width:min(340px, calc(100vw - 32px));
+    }
+    .info-toggle {
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--surface); color:var(--ink); border:1px solid var(--line-strong);
+      border-radius:var(--control-radius); padding:10px 16px; margin:0; box-shadow:var(--shadow); cursor:pointer;
+      font-family:var(--font-display); font-weight:600; font-size:13px; letter-spacing:.08em;
+      text-transform:uppercase; transition:border-color .15s, background-color .15s;
+    }
+    .info-toggle:hover { background:var(--surface-2); border-color:var(--accent-border); color:var(--ink); }
+    .info-caret { color:var(--accent); transition:transform .2s; font-size:11px; }
+    .info-toggle[aria-expanded="true"] .info-caret { transform:rotate(180deg); }
+    .info-body {
+      width:100%; max-height:70vh; overflow-y:auto;
+      background:var(--card); border:var(--card-border); border-radius:var(--radius);
+      padding:18px 20px; box-shadow:var(--shadow); animation:cardIn .2s ease both;
+    }
+    .info-body h3 {
+      font-family:var(--font-display); font-weight:600; font-size:11px; letter-spacing:.18em;
+      text-transform:uppercase; color:var(--accent); margin:0 0 10px;
+    }
+    .info-rules { margin:0; padding-left:20px; }
+    .info-rules li { font-size:15px; line-height:1.5; margin-bottom:7px; color:var(--ink); }
+    .info-rules li:last-child { margin-bottom:0; }
+    .info-links { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+    .info-link {
+      display:inline-block; text-decoration:none; padding:10px 16px; margin:0;
+      background:var(--accent); color:var(--accent-ink); border-radius:var(--control-radius);
+      font-family:var(--font-display); font-weight:700; font-size:13px; letter-spacing:.04em;
+      text-transform:uppercase; transition:background .2s;
+    }
+    .info-link:hover { background:var(--accent-strong); }
   </style>
 </head>
 <body data-theme="<?= theme ?>">
@@ -405,6 +448,22 @@
     <div class="captain-name"><?= captain ?></div>
     <div id="sold-banner"></div>
     <div id="content"></div>
+
+    <div class="info-panel">
+      <button type="button" class="info-toggle" aria-expanded="false" onclick="toggleInfo(this)">
+        <span>Rules &amp; Links</span><span class="info-caret">▾</span>
+      </button>
+      <div class="info-body" hidden>
+        <h3>Auction Rules</h3>
+        <ul class="info-rules">
+<? for (var i = 0; i < rules.length; i++) { ?>          <li><?= rules[i] ?></li>
+<? } ?>        </ul>
+        <div class="info-links">
+          <a class="info-link" href="<?= boardUrl ?>" target="_blank" rel="noopener">View Team Board</a>
+<? for (var j = 0; j < extraLinks.length; j++) { ?>          <a class="info-link" href="<?= extraLinks[j].url ?>" target="_blank" rel="noopener"><?= extraLinks[j].label ?></a>
+<? } ?>        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -440,6 +499,14 @@
       return String(s).replace(/[&<>"']/g, function(c) {
         return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
       });
+    }
+
+    // Collapsible Rules & Links panel (static, independent of the polling loop).
+    function toggleInfo(btn) {
+      const open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      const body = btn.parentNode.querySelector('.info-body');
+      if (body) body.hidden = open;
     }
 
     function setSubmitting(value) {
@@ -480,7 +547,8 @@
       const root = document.getElementById('content');
 
       if (state.phase === STATUSES.FINISHED) {
-        root.innerHTML = '<div class="finished">Auction finished.</div>';
+        root.innerHTML = '<div class="finished">Auction complete!' +
+          '<span class="state-hint">I hope you enjoyed the auction draft, <b>' + esc(captain) + '</b>, have a good time in the tournament! — VioSolip</span></div>';
         return;
       }
 
@@ -495,7 +563,8 @@
       } else if (state.phase === STATUSES.BIDDING) {
         renderRegularBid(root, state);
       } else {
-        root.innerHTML = '<div class="waiting">Waiting for next auction…</div>';
+        root.innerHTML = '<div class="waiting">Waiting for the next auction…' +
+          '<span class="state-hint">While you wait, check out the <b>Rules &amp; Links</b> button in the bottom-right corner.</span></div>';
         return;
       }
 

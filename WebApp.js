@@ -23,6 +23,9 @@ function doGet(e) {
   tmpl.sellModeAuto = SELL_MODE_AUTO;
   tmpl.theme = CAPTAIN_THEME;
   tmpl.fontUrl = THEME_FONT_URLS[CAPTAIN_THEME] || THEME_FONT_URLS.draftroom;
+  tmpl.rules = AUCTION_RULES;
+  tmpl.extraLinks = CAPTAIN_LINKS;
+  tmpl.boardUrl = ScriptApp.getService().getUrl() + "?view=board";
   return tmpl.evaluate()
     .setTitle("Auction — " + (captain || "no captain"))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -41,6 +44,7 @@ function renderBoard() {
   tmpl.rolesJson = JSON.stringify(ROLE_LABELS.map(function(r) {
     return { key: r.toLowerCase(), label: r, hasIcon: !!icons[r] };
   }));
+  tmpl.rules = AUCTION_RULES;
   return tmpl.evaluate()
     .setTitle("Auction — Teams")
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
