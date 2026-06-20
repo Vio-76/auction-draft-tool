@@ -84,6 +84,12 @@ const SOLD_BUTTON_USABLE_CELL = "T69";   // adjust to a free cell
 
 const SELL_MODE_AUTO   = "AUTO";
 const SELL_MODE_MANUAL = "MANUAL";
+const SOLD_ENABLED  = "ENABLED";
+const SOLD_DISABLED = "DISABLED";
+
+// Fallbacks used when the corresponding cell is blank or invalid.
+const DEFAULT_AUTO_WINDOW_SECONDS   = 15;
+const DEFAULT_SOLD_COOLDOWN_SECONDS = 3;
 
 // ----- Turn order (how the opening-bid turn rotates) -----
 
@@ -97,12 +103,6 @@ const TURN_ORDER_SNAKE     = "SNAKE";      // bounce at the ends, end captain go
 const TURN_DIRECTION_CELL = "C16";   // adjust to a free cell near TURN_ORDER_CELL
 const TURN_DIR_DOWN = "DOWN";   // forward / +1 (default)
 const TURN_DIR_UP   = "UP";     // reverse / -1
-const SOLD_ENABLED  = "ENABLED";
-const SOLD_DISABLED = "DISABLED";
-
-// Fallbacks used when the corresponding cell is blank or invalid.
-const DEFAULT_AUTO_WINDOW_SECONDS   = 15;
-const DEFAULT_SOLD_COOLDOWN_SECONDS = 3;
 
 // ----- Rules & links panel (captain page + spectator board) -----
 // Shown in the collapsible "Rules & Links" panel on both the captain page and the board.
