@@ -156,7 +156,7 @@ function adminSkipCaptain() {
       ui.alert("Turn-holder changed while confirming — nothing skipped.");
       return;
     }
-    _advanceTurnInner(sheet);
+    _skipTurnInner(sheet);
   } finally {
     lock.releaseLock();
   }

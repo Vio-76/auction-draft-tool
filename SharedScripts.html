@@ -1,0 +1,16 @@
+    // Shared client helpers, included by Index.html & Board.html via
+    // <?!= include('SharedScripts') ?>.
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function(c) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+      });
+    }
+
+    // Collapsible Rules/Info panel (static, independent of the polling loop).
+    function toggleInfo(btn) {
+      const open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      const body = btn.parentNode.querySelector('.info-body');
+      if (body) body.hidden = open;
+    }

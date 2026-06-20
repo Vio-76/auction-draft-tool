@@ -3,6 +3,11 @@
  * getState and placeBid are called from the captain page via google.script.run.
  */
 
+/** Inlines a shared .html partial into a page template via <?!= include('Name') ?>. */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
 function doGet(e) {
   const view = (e && e.parameter && e.parameter.view) || "";
   if (view === "board") return renderBoard();
@@ -101,7 +106,19 @@ function getBoardState() {
 
   const openPlayers = readOpenPlayersWithRoles(auctSheet);
 
-  const payload = { teams: teams, highestBid: highestBid, openPlayers: openPlayers };
+  // Turn-order rail data (seat order + current marker + mode/direction + full map).
+  const tracker = readTracker(auctSheet);
+  const fullByName = readFullCaptains(auctSheet);
+  const turn = {
+    order:        tracker.names,        // captain seat order
+    currentIndex: tracker.markerIdx,    // -1 when finished / no marker
+    mode:         readTurnOrder(auctSheet),
+    direction:    readTurnDirection(auctSheet) === -1 ? TURN_DIR_UP : TURN_DIR_DOWN,
+    phase:        readStatus(auctSheet),
+    full:         fullByName,
+  };
+
+  const payload = { teams: teams, highestBid: highestBid, openPlayers: openPlayers, turn: turn };
   cache.put('boardState', JSON.stringify(payload), BOARD_CACHE_TTL_SECONDS);
   return payload;
 }
@@ -347,7 +364,7 @@ function skipTurn(captain, code) {
     if (findCurrentTurnCaptain(sheet) !== captain) {
       return { ok: false, error: "It's not your turn." };
     }
-    _advanceTurnInner(sheet);
+    _skipTurnInner(sheet);
   } finally {
     lock.releaseLock();
   }
