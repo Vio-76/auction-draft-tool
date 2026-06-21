@@ -1,10 +1,21 @@
-    // Shared client helpers, included by Index.html & Board.html via
-    // <?!= include('SharedScripts') ?>.
-
+    // Shared client helpers (esc, toggleInfo), included by both pages via include().
+    // IMPORTANT: this file must contain NO literal ampersand, less-than, or greater-than
+    // character anywhere (not in code, strings, comments, or a loop condition). The
+    // include pipeline HTML-escapes a literal less-than into its entity, which silently
+    // breaks whatever it touches (a regex char-set, or a comparison operator). So esc
+    // builds its special characters with String.fromCharCode and avoids comparison
+    // operators by mapping over the characters.
     function esc(s) {
-      return String(s).replace(/[&<>"']/g, function(c) {
-        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
-      });
+      var AMP = String.fromCharCode(38);   // ampersand
+      var map = {};
+      map[AMP]                     = AMP + 'amp;';
+      map[String.fromCharCode(60)] = AMP + 'lt;';    // less-than
+      map[String.fromCharCode(62)] = AMP + 'gt;';    // greater-than
+      map[String.fromCharCode(34)] = AMP + 'quot;';  // double quote
+      map[String.fromCharCode(39)] = AMP + '#39;';   // single quote
+      return String(s).split('').map(function(ch) {
+        return map.hasOwnProperty(ch) ? map[ch] : ch;
+      }).join('');
     }
 
     // Collapsible Rules/Info panel (static, independent of the polling loop).
