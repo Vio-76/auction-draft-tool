@@ -104,16 +104,54 @@ const TURN_DIRECTION_CELL = "C16";   // adjust to a free cell near TURN_ORDER_CE
 const TURN_DIR_DOWN = "DOWN";   // forward / +1 (default)
 const TURN_DIR_UP   = "UP";     // reverse / -1
 
-// ----- Rules & links panel (captain page + spectator board) -----
-// Shown in the collapsible "Rules & Links" panel on both the captain page and the board.
-// Edit freely — both pages read from this single list.
-const AUCTION_RULES = [
-  "Each captain drafts 4 players to fill their team (you are the 5th).",
-  "On your turn you have 30 seconds to open bidding on an available player.",
-  "Once bidding is open, anyone can bid until the admin marks the player Sold.",
-  "Your max bid is fixed — you cannot bid above it.",
-  // ...edit / add your real rules here...
+// ----- Rules & info panel (captain page + spectator board) -----
+// Shown in the collapsible "Rules & Links" panel on both the captain page and the
+// board. Both pages render this single, sectioned content (WebApp.js#buildInfoSections
+// fills it in at page load). Edit the copy freely.
+//
+// Two pieces of light markup are processed at render time:
+//   {TOKEN}   — replaced with a live value or a variant snippet (see the token list in
+//               buildInfoSections): {OPENING_SECONDS} {AUTO_SECONDS} {SMALL_BLIND}
+//               {NUM_CAPTAINS} {TURN_ORDER} {SELL_MODE}.
+//   *term*    — the wrapped term is emphasized as a keyword (rendered <span class="info-key">).
+// Everything else is plain text (HTML-escaped), so write apostrophes / "&" freely.
+const AUCTION_INFO_SECTIONS = [
+  {
+    heading: "Bidding phase",
+    items: [
+      "When a player is on the block, any captain can place a bid.",
+      "A new bid must beat the current bid by at least $1.",
+      "The *max bid* of a captain is the highest amount they can bid on a player.",
+      "A captain can not bid if the current bid exceeds their max bid or their team is full.",
+      "{SELL_MODE}",
+    ],
+  },
+  {
+    heading: "Opening bid phase",
+    items: [
+      "When it is a captains *turn* they have {OPENING_SECONDS}seconds to pick an available player and place an *opening bid*.",
+      "Alternatively they can *Skip* to pass their turn.",
+      "Any opening bid must be at least ${SMALL_BLIND}.",
+      "The opening turn order is at the bottom of the teams page. Full teams are skipped.",
+    ],
+  },  
+  {
+    heading: "Teams page details",
+    items: [
+      "Player roles are only displayed to help the captains draft good teams, they are not binding (roles can be swapped).",
+      "A teams max bid is grayed out when they can't bid anymore. Either because they are out priced or because the team is full.",
+    ],
+  },
 ];
+
+// Conditional snippets picked at render time from the live sheet settings. The chosen
+// one is substituted in for {TURN_ORDER} / {SELL_MODE} above (and may carry its own tokens).
+const AUCTION_INFO_VARIANTS = {
+  TURN_ORDER_WATERFALL: "It moves down the list and wraps back to the top.",
+  TURN_ORDER_SNAKE:     "It snakes back and forth, so the captain at each end bids twice in a row.",
+  SELL_MODE_AUTO:       "Each bid refreshes a {AUTO_SECONDS}second countdown; when it ends the player is sold to the highest bidder.",
+  SELL_MODE_MANUAL:     "The admin marks the player as *Sold* once bidding settles.",
+};
 
 // Extra links shown on the CAPTAIN page beside the auto-added "View Team Board" link.
 // e.g. { label: "Auction Sheet", url: "https://..." }

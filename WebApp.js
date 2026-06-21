@@ -8,6 +8,67 @@ function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+/**
+ * Builds the sectioned Rules/Info content shown on both the captain page and the
+ * board, from the editable copy in Config (AUCTION_INFO_SECTIONS) filled in with
+ * the live sheet settings. Returns [{ heading, items: [htmlString] }]. Each item is
+ * HTML-escaped, then {TOKEN}s are substituted and *terms* become emphasized spans —
+ * so the pages render the items with <?!= ?> (force-print). Built once at page load;
+ * a mid-auction settings change shows on the visitor's next refresh. (This runs in a
+ * template-evaluated file, not an include() partial, so literal < / & here are safe.)
+ */
+function buildInfoSections() {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  const sellAuto = readSellMode(sheet) === SELL_MODE_AUTO;
+  const snake    = readTurnOrder(sheet) === TURN_ORDER_SNAKE;
+
+  // Scalar values read from config/cells — each is wrapped in <span class="info-val">
+  // so live data is visually distinct from the surrounding hard-coded copy.
+  const valueTokens = {
+    OPENING_SECONDS: OPENING_BID_TIMEOUT_SECONDS,
+    AUTO_SECONDS:    readAutoWindowSeconds(sheet),
+    SMALL_BLIND:     readSmallBlind(sheet),
+    NUM_CAPTAINS:    NUM_CAPTAINS,
+  };
+  // Conditional wording variants (whole phrases, not values), substituted as plain
+  // text. They may themselves carry a value token (AUTO_SELL has {AUTO_SECONDS}).
+  const snippetTokens = {
+    TURN_ORDER: snake ? AUCTION_INFO_VARIANTS.TURN_ORDER_SNAKE
+                      : AUCTION_INFO_VARIANTS.TURN_ORDER_WATERFALL,
+    SELL_MODE:  sellAuto ? AUCTION_INFO_VARIANTS.SELL_MODE_AUTO
+                         : AUCTION_INFO_VARIANTS.SELL_MODE_MANUAL,
+  };
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+  function fillFrom(map, wrap) {
+    return function(s) {
+      return s.replace(/\{(\w+)\}/g, function(m, key) {
+        if (!map.hasOwnProperty(key)) return m;
+        return wrap ? '<span class="info-val">' + map[key] + '</span>' : map[key];
+      });
+    };
+  }
+  var fillSnippets = fillFrom(snippetTokens, false);
+  var fillValues   = fillFrom(valueTokens, true);
+
+  return AUCTION_INFO_SECTIONS.map(function(sec) {
+    return {
+      heading: sec.heading,
+      items: sec.items.map(function(item) {
+        // Escape (author copy is plain text) -> drop in variant phrases (may add value
+        // tokens / *Sold*) -> wrap every live value -> emphasize *keywords*.
+        var html = fillValues(fillSnippets(escapeHtml(item)));
+        return html.replace(/\*([^*]+)\*/g, '<span class="info-key">$1</span>');
+      }),
+    };
+  });
+}
+
 function doGet(e) {
   const view = (e && e.parameter && e.parameter.view) || "";
   if (view === "board") return renderBoard();
@@ -28,7 +89,7 @@ function doGet(e) {
   tmpl.sellModeAuto = SELL_MODE_AUTO;
   tmpl.theme = CAPTAIN_THEME;
   tmpl.fontUrl = THEME_FONT_URLS[CAPTAIN_THEME] || THEME_FONT_URLS.draftroom;
-  tmpl.rules = AUCTION_RULES;
+  tmpl.infoSections = buildInfoSections();
   tmpl.extraLinks = CAPTAIN_LINKS;
   tmpl.boardUrl = ScriptApp.getService().getUrl() + "?view=board";
   return tmpl.evaluate()
@@ -49,7 +110,7 @@ function renderBoard() {
   tmpl.rolesJson = JSON.stringify(ROLE_LABELS.map(function(r) {
     return { key: r.toLowerCase(), label: r, hasIcon: !!icons[r] };
   }));
-  tmpl.rules = AUCTION_RULES;
+  tmpl.infoSections = buildInfoSections();
   return tmpl.evaluate()
     .setTitle("Auction — Teams")
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

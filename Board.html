@@ -213,10 +213,12 @@
         <span>Auction Rules</span><span class="info-caret">▾</span>
       </button>
       <div class="info-body" hidden>
+        <h3>Auction Rules</h3>
+<? for (var s = 0; s < infoSections.length; s++) { ?>        <h4 class="info-section-head"><?= infoSections[s].heading ?></h4>
         <ul class="info-rules">
-<? for (var i = 0; i < rules.length; i++) { ?>          <li><?= rules[i] ?></li>
-<? } ?>        </ul>
-      </div>
+<?   for (var i = 0; i < infoSections[s].items.length; i++) { ?>          <li><?!= infoSections[s].items[i] ?></li>
+<?   } ?>        </ul>
+<? } ?>      </div>
     </div>
 
     <div class="team-grid" id="board"></div>
