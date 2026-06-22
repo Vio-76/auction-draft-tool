@@ -139,7 +139,6 @@ const AUCTION_INFO_SECTIONS = [
     heading: "Teams page details",
     items: [
       "Player roles are only displayed to help the captains draft good teams, they are not binding (roles can be swapped).",
-      "A teams max bid is grayed out when they can't bid anymore. Either because they are out priced or because the team is full.",
     ],
   },
 ];

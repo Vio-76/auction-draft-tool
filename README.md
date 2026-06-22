@@ -19,6 +19,24 @@ The turn rotation supports two orders, switchable live from a sheet cell: **wate
 
 Captains are authenticated by a name + code looked up in an `Auth` sheet, which also stores each captain's maximum bid.
 
+## Screenshots
+
+> The screenshots use placeholder captains and players, not real data, and the default `draftroom` theme.
+
+**Captain page** — the opening phase (pick a player, place an opening bid, with a countdown) and the bidding phase (live high bid, your max bid, place a higher bid):
+
+| Opening phase | Bidding phase |
+|---|---|
+| ![Captain page during the opening phase](docs/screenshots/captain-opening.png) | ![Captain page during the bidding phase](docs/screenshots/captain-bidding.png) |
+
+**Spectator board** (`?view=board`) — every team's roster and remaining max bid, the available-player pool grouped by role, and the live opening-bid order:
+
+![Spectator team board](docs/screenshots/spectator-board.png)
+
+**Rules panel** — the collapsible rules shown on both the captain page and the board, filled in with the live auction settings:
+
+![Auction rules panel](docs/screenshots/auction-rules.png)
+
 ## Project structure
 
 | File | Purpose |
