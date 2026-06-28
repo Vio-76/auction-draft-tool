@@ -137,12 +137,18 @@ function getBoardState() {
 
   const auctSheet = ss.getSheetByName(AUCT_SHEET);
   const highestBid = readNumber(auctSheet, HIGHEST_BID_CELL);
-  const block = boardSheet.getRange(BOARD_FIRST_ROW, 1, NUM_TEAMS, BOARD_NUM_COLS).getValues();
+  // Clamp to the sheet's grid: getRange throws if it runs past the last row, and the
+  // Data Board tab may be sized smaller than BOARD_MAX_ROWS.
+  const boardRows = Math.min(BOARD_MAX_ROWS, boardSheet.getMaxRows() - BOARD_FIRST_ROW + 1);
+  const block = boardSheet.getRange(BOARD_FIRST_ROW, 1, boardRows, BOARD_NUM_COLS).getValues();
 
+  // First NUM_CAPTAINS rows are the teams (one row each); later rows carry only the
+  // longer Available Players list (cols T/U), so cap the team scan at NUM_CAPTAINS.
   const teams = [];
-  for (const row of block) {
+  for (let r = 0; r < NUM_CAPTAINS; r++) {
+    const row = block[r];
     const captain = String(row[0]).trim();
-    if (!captain) continue;  // unused row in the block
+    if (!captain) continue;  // unused team row
 
     const players = [];
     for (let i = 0; i < TEAM_SLOTS; i++) {       // cols C/D, E/F, G/H, I/J
@@ -151,21 +157,22 @@ function getBoardState() {
     }
 
     const roles = [];
-    for (let i = 0; i < ROLE_LABELS.length; i++) {  // cols M..R
-      roles.push(_boardFlag(row[12 + i]));
+    for (let i = 0; i < ROLE_LABELS.length; i++) {  // cols N..S
+      roles.push(_boardFlag(row[BOARD_COL_ROLE_FIRST + i]));
     }
 
     teams.push({
       captain:      captain,
-      captainPrice: Number(row[1]) || 0,    // col B
+      captainPrice: Number(row[1]) || 0,                 // col B
       players:      players,
-      maxBid:       Number(row[10]) || 0,    // col K
-      full:         _boardFlag(row[11]),     // col L
+      maxBid:       Number(row[BOARD_COL_MAXBID]) || 0,  // col K
+      full:         _boardFlag(row[BOARD_COL_FULL]),     // col M
       roles:        roles,
     });
   }
 
-  const openPlayers = readOpenPlayersWithRoles(auctSheet);
+  // Available players now live on the board sheet (cols T/U), read in the same batch.
+  const openPlayers = _parseBoardAvailablePlayers(block);
 
   // Turn-order rail data (seat order + current marker + mode/direction + full map).
   const tracker = readTracker(auctSheet);
@@ -182,6 +189,25 @@ function getBoardState() {
   const payload = { teams: teams, highestBid: highestBid, openPlayers: openPlayers, turn: turn };
   cache.put('boardState', JSON.stringify(payload), BOARD_CACHE_TTL_SECONDS);
   return payload;
+}
+
+/**
+ * Parses the Available Players list (cols T/U) out of the already-read board block as
+ * [{name, role}], skipping blank rows. Shuffled deterministically by name (same stable,
+ * random-looking order as the old readOpenPlayersWithRoles, so the board doesn't churn).
+ */
+function _parseBoardAvailablePlayers(block) {
+  const out = [];
+  for (let i = 0; i < block.length; i++) {
+    const name = String(block[i][BOARD_COL_AVAIL_NAME]).trim();
+    if (!name) continue;
+    out.push({ name: name, role: String(block[i][BOARD_COL_AVAIL_ROLE]).trim() });
+  }
+  out.sort(function(a, b) {
+    const ka = _shuffleKey(a.name), kb = _shuffleKey(b.name);
+    return ka === kb ? a.name.localeCompare(b.name) : ka - kb;
+  });
+  return out;
 }
 
 /** Parses a 1/0 (or true/false) board flag cell into a boolean. */
@@ -281,17 +307,83 @@ function _findIconFileInFolder(folder, role) {
   return null;
 }
 
+/**
+ * Reads everything the captain page polls in ONE getValues() over the Data Captain block
+ * (Config CAPTAIN_STATE_*). Singletons come from the first data row; the per-captain Max Bid
+ * and the Available Players list are scanned down their columns.
+ *
+ * This block is a read-only projection (cell references) used for display/polling only.
+ * Authoritative writes and validation still hit the live Auction cells under the lock
+ * (placeBid reads HIGHEST_BID_CELL, placeOpeningBid checks isPlayerInPool, etc.), so a
+ * one-tick recalc lag on the mirror can only ever affect a single poll's display.
+ */
+function readCaptainStateBlock(ss, captain) {
+  const sheet = ss.getSheetByName(CAPTAIN_STATE_SHEET);
+  // Missing tab → degrade to a safe paused state (CLOSED) instead of throwing, so the
+  // captain page still renders its "waiting" message rather than going blank.
+  if (!sheet) {
+    return {
+      phase: STATUS_CLOSED, sellMode: SELL_MODE_MANUAL, player: "", highestBid: 0,
+      byCaptain: "", smallBlind: 0, sellWindowSeconds: DEFAULT_AUTO_WINDOW_SECONDS,
+      yourMaxBid: 1, openPlayers: [],
+    };
+  }
+  // Clamp the batch range to the sheet's actual grid: getRange throws if it runs past the
+  // last row, and the Data Captain tab may be sized smaller than CAPTAIN_STATE_MAX_ROWS.
+  const rows = Math.min(CAPTAIN_STATE_MAX_ROWS, sheet.getMaxRows() - CAPTAIN_STATE_FIRST_ROW + 1);
+  const block = sheet.getRange(CAPTAIN_STATE_FIRST_ROW, 1, rows, CAPTAIN_STATE_NUM_COLS).getValues();
+  const top = block[0];
+
+  const smallBlind = Number(top[CS_SMALL_BLIND]) || 0;
+
+  // Per-captain max bid: scan the Captain / Max Bid columns for this captain's row.
+  let yourMaxBid = 0;
+  for (let i = 0; i < block.length; i++) {
+    if (String(block[i][CS_CAPTAIN]).trim() === captain) {
+      yourMaxBid = Number(block[i][CS_MAX_BID]) || 0;
+      break;
+    }
+  }
+
+  // Available players (names only, alphabetised) for the opening-bid picker.
+  const openPlayers = [];
+  for (let i = 0; i < block.length; i++) {
+    const name = String(block[i][CS_AVAIL_PLAYER]).trim();
+    if (name) openPlayers.push(name);
+  }
+  openPlayers.sort(function(a, b) {
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+  });
+
+  return {
+    phase:             String(top[CS_STATUS]).trim().toUpperCase() || STATUS_CLOSED,
+    sellMode:          String(top[CS_SELL_MODE]).trim().toUpperCase() === SELL_MODE_AUTO
+                         ? SELL_MODE_AUTO : SELL_MODE_MANUAL,
+    player:            String(top[CS_CURRENT_PLAYER]).trim(),
+    highestBid:        Number(top[CS_HIGHEST_BID]) || 0,
+    byCaptain:         String(top[CS_BY_CAPTAIN]).trim(),
+    smallBlind:        smallBlind,
+    sellWindowSeconds: Number(top[CS_AUTO_COUNTDOWN]) || DEFAULT_AUTO_WINDOW_SECONDS,
+    yourMaxBid:        yourMaxBid || smallBlind || 1,   // never an unbounded (0) cap
+    openPlayers:       openPlayers,
+  };
+}
+
 /** Called by the captain webpage every second. */
 function getState(captain, code) {
   if (!checkCode(captain, code)) return { unauthorized: true };
   autoSkipIfDeadlinePassed();
-  const sheet = SpreadsheetApp.getActive().getSheetByName(AUCT_SHEET);
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(AUCT_SHEET);
   maximizeAutoSellTimeWindowIfSwitchedToAutoMode(sheet);
   autoSellIfTimeWindowElapsed(sheet);
   armSoldButtonIfCooldownPeriodElapsed(sheet);
 
-  const phase = readStatus(sheet) || STATUS_CLOSED;
-  const sellMode = readSellMode(sheet);
+  // One batched read of the Data Captain block for all captain-identical fields.
+  const state = readCaptainStateBlock(ss, captain);
+  const phase = state.phase;
+  const sellMode = state.sellMode;
+  // currentTurnCaptain / full stay live reads of the Auction sheet (tracker + full list).
   const currentTurnCaptain = findCurrentTurnCaptain(sheet);
   const isYourTurnToOpen = (phase === STATUS_OPENING) && (currentTurnCaptain === captain);
 
@@ -301,23 +393,23 @@ function getState(captain, code) {
     sellMode:     sellMode,
     currentTurnCaptain: currentTurnCaptain,
     isYourTurnToOpen: isYourTurnToOpen,
-    player:       readCell(sheet, PLAYER_CELL),
-    highestBid:   readNumber(sheet, HIGHEST_BID_CELL),
-    byCaptain:    readCell(sheet, BY_CAPTAIN_CELL),
-    yourMaxBid:   readCaptainMaxBid(sheet, captain),
-    smallBlind:   readSmallBlind(sheet),
-    youAreFull:         isCaptainFull(sheet, captain),
+    player:       state.player,
+    highestBid:   state.highestBid,
+    byCaptain:    state.byCaptain,
+    yourMaxBid:   state.yourMaxBid,
+    smallBlind:   state.smallBlind,
+    youAreFull:   isCaptainFull(sheet, captain),
   };
 
-    // Only send the (potentially long) open players list when needed
+  // Only send the (potentially long) open players list when needed.
   if (isYourTurnToOpen) {
-    result.openPlayers = readOpenPlayers(sheet);
+    result.openPlayers = state.openPlayers;
     result.secondsRemaining = getOpeningTurnSecondsRemaining();
   }
 
   // AUTO mode: send the auto-sell countdown so captains see a ring during bidding.
   if (phase === STATUS_BIDDING && sellMode === SELL_MODE_AUTO) {
-    result.sellWindowSeconds  = readAutoWindowSeconds(sheet);
+    result.sellWindowSeconds  = state.sellWindowSeconds;
     result.sellSecondsRemaining = getAutoSellSecondsRemaining(sheet);
   }
 

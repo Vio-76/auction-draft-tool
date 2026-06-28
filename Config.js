@@ -5,12 +5,8 @@
  * If the sheet layout changes, this is the only file you should need to edit.
  */
 
-// Sheet names
-const AUCT_SHEET = "Auction";
-const AUTH_SHEET = "Auth";
 
-// Number of captains
-const NUM_CAPTAINS = 6;
+///Webpage configuration
 
 //time for captains to submit opening bid before autoskip
 const OPENING_BID_TIMEOUT_SECONDS = 30;
@@ -18,6 +14,15 @@ const OPENING_BID_TIMEOUT_SECONDS = 30;
 // How long the captain page shows the "<player> sold to <captain> for $<bid>"
 // banner after each sale. Long enough to read, short enough not to stall the auction.
 const SOLD_MESSAGE_DISPLAY_SECONDS = 6;
+
+/// Sheet Locations
+
+// Sheet names
+const AUCT_SHEET = "Auction";
+const AUTH_SHEET = "URLs";
+
+// Number of captains, used to calculate sheet areas
+const NUM_CAPTAINS = 6;
 
 // Turn tracker Area (captain names + the "it's their turn" marker)
 const TRACKER_NAME_COL   = 1;
@@ -104,6 +109,9 @@ const TURN_DIRECTION_CELL = "C16";   // adjust to a free cell near TURN_ORDER_CE
 const TURN_DIR_DOWN = "DOWN";   // forward / +1 (default)
 const TURN_DIR_UP   = "UP";     // reverse / -1
 
+//TODO read this from the sheet instead of hardcoding it
+const TEAM_BUDGET = 100;
+
 // ----- Rules & info panel (captain page + spectator board) -----
 // Shown in the collapsible "Rules & Links" panel on both the captain page and the
 // board. Both pages render this single, sectioned content (WebApp.js#buildInfoSections
@@ -121,7 +129,7 @@ const AUCTION_INFO_SECTIONS = [
     items: [
       "When a player is on the block, any captain can place a bid.",
       "A new bid must beat the current bid by at least $1.",
-      "The *max bid* of a captain is the highest amount they can bid on a player.",
+      "The *max bid* of a captain is the highest amount they can bid on a player. (It is calculated from the total team budget ${TEAM_BUDGET}, the minimum player cost ${SMALL_BLIND} and the costs of players already in the team.)",
       "A captain can not bid if the current bid exceeds their max bid or their team is full.",
       "{SELL_MODE}",
     ],
@@ -186,18 +194,27 @@ const THEME_FONT_URLS = {
 // then caches the built payload (see WebApp.js#getBoardState) — keeps it fast and within
 // Google limits even with ~100 spectators polling. See CLAUDE.md "Scale & Google limits".
 
-const BOARD_SHEET     = "Board";   // dedicated tab holding the consolidated board block
-const BOARD_FIRST_ROW = 2;         // row 1 is headers; team rows start here
-const NUM_TEAMS       = 20;        // max team rows read from the block (blank-captain rows skipped)
-const BOARD_NUM_COLS  = 18;        // columns A..R (see the layout below)
+const BOARD_SHEET     = "Data Board";   // dedicated tab holding the consolidated board block
+const BOARD_FIRST_ROW = 2;         // row 1 is headers; data rows start here
+const BOARD_NUM_COLS  = 21;        // columns A..U (read in one getValues; see the layout below)
+const BOARD_MAX_ROWS  = 125;       // rows scanned per read — covers both the team rows
+                                   // (first NUM_CAPTAINS) and the longer available-players list
 
-// Board block layout, one row per team (cols A..R):
+// Board block layout (cols A..U). The first NUM_CAPTAINS rows are teams, one row each;
+// the Available Players list (T/U) can run far longer, hence BOARD_MAX_ROWS.
 //   A  captain name            (identifies the team)
 //   B  captain price           (the captain's own cost; feeds the max-bid calc)
 //   C/D  player1 name / price   E/F  player2    G/H  player3   I/J  player4
-//   K  max bid                 L  full? (1/0)
-//   M..R  role-drafted flags (1/0) in ROLE_LABELS order
+//   K  max bid                 L  player count        M  full? (1/0)
+//   N..S  role-drafted flags (1/0) in ROLE_LABELS order
+//   T  available player name   U  available player role
 // PRICE pairs are read via TEAM_SLOTS (4 drafted slots) from Helpers/Config.
+// 0-based column indices into the read block:
+const BOARD_COL_MAXBID     = 10;   // K
+const BOARD_COL_FULL       = 12;   // M (Player Count sits at L, between max bid and full)
+const BOARD_COL_ROLE_FIRST = 13;   // N..S, in ROLE_LABELS order
+const BOARD_COL_AVAIL_NAME = 19;   // T
+const BOARD_COL_AVAIL_ROLE = 20;   // U
 
 // Role order — matches the 6 role-flag columns (L..Q) AND the role icon set.
 const ROLE_LABELS = ["Top", "Jungle", "Mid", "ADC", "Support", "Fill"];
@@ -212,3 +229,35 @@ const ROLE_ICON_FILE_IDS  = {};    // optional override, e.g. { Top: "<fileId>",
 // server cache means actual sheet reads are capped at ~1 per this interval no matter how
 // many spectators are watching.
 const BOARD_CACHE_TTL_SECONDS = 3;
+
+// ----- Captain-page state block (drives getState in one batched read) -----
+// A dedicated tab that mirrors (via cell references) everything the captain page polls,
+// so getState reads it in a single getValues() instead of many scattered cell reads.
+// Singletons live in the first data row; the per-captain Captain/Max-Bid pairs and the
+// Available Players list run down their columns, hence CAPTAIN_STATE_MAX_ROWS.
+//
+// Block layout (cols A..L), row 1 = headers, data from CAPTAIN_STATE_FIRST_ROW:
+//   A  highest bid (singleton)     B  by captain (singleton)    C  current player (singleton)
+//   D  captain  / E  max bid       (per-captain list, one row each)
+//   F  opening turn (list/order)   G  small blind (singleton)
+//   H  available player name       (list)
+//   I  team budget (singleton)     J  auto sell countdown (singleton)
+//   K  auction status (singleton)  L  sell mode (singleton)
+const CAPTAIN_STATE_SHEET     = "Data Captain Page";   // dedicated tab; adjust to the exact tab name
+const CAPTAIN_STATE_FIRST_ROW = 2;                // row 1 is headers; data starts here
+const CAPTAIN_STATE_NUM_COLS  = 12;               // columns A..L
+const CAPTAIN_STATE_MAX_ROWS  = 125;              // covers the Available Players list
+
+// 0-based column indices into the read block.
+const CS_HIGHEST_BID    = 0;   // A
+const CS_BY_CAPTAIN     = 1;   // B
+const CS_CURRENT_PLAYER = 2;   // C
+const CS_CAPTAIN        = 3;   // D  (per-captain list, paired with CS_MAX_BID)
+const CS_MAX_BID        = 4;   // E
+const CS_OPENING_TURN   = 5;   // F
+const CS_SMALL_BLIND    = 6;   // G
+const CS_AVAIL_PLAYER   = 7;   // H
+const CS_TEAM_BUDGET    = 8;   // I
+const CS_AUTO_COUNTDOWN = 9;   // J
+const CS_STATUS         = 10;  // K
+const CS_SELL_MODE      = 11;  // L

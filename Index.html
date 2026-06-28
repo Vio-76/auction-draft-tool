@@ -566,6 +566,10 @@
       google.script.run.withSuccessHandler(function(state) {
         render(state);
         if (state) { syncTimer(state); syncSellTimer(state); updateSoldBanner(state); }
+      }).withFailureHandler(function(err) {
+        // Don't leave the page silently blank if getState throws — surface it.
+        document.getElementById('content').innerHTML =
+          '<div class="waiting">Reconnecting…<span class="state-hint">' + esc(err && err.message ? err.message : 'Connection lost') + '</span></div>';
       }).getState(captain, code);
     }
 
